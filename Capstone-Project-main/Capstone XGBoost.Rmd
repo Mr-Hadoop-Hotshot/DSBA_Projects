@@ -1,0 +1,219 @@
+---
+title: "XGBOOSTING"
+author: "Karthik"
+date: "6/15/2020"
+output: html_document
+---
+
+# SPLIT for Data Ensemble Method
+```{r}
+# Data Split
+split_bag <- CHD.C
+View(CHD.C)
+set.seed(369)
+split=sample.split(split_bag$CHD_in_10Yrs,SplitRatio = 0.7)
+train.bag1 <- subset(split_bag,split==TRUE)
+test.bag1 <- subset(split_bag,split==FALSE)
+
+train_SMOTE <- train
+names(train_SMOTE)
+set.seed(369)
+
+train_SMOTE <- SMOTE(CHD_in_10Yrs~.,train,perc.over =300,perc.under=350,k=5)
+
+round((prop.table(table(train_SMOTE$CHD_in_10Yrs)))*100,2) # Risk proportion.
+dim(train_SMOTE)
+dim(train)
+dim(CHD)
+names(split_bag)
+```
+
+#Library
+
+```{r}
+library("DMwR")
+library("caret")
+library("xgboost")
+library("tidyverse")
+library("ipred")
+library("rpart")
+library("caTools")
+library("ROCR")# To visualize ROCR curve
+```
+# Split dataset - Original
+```{r}
+split_data <- xgdata
+xgdata$CHD_in_10Yrs <- as.numeric(xgdata$CHD_in_10Yrs)
+set.seed(369)
+split=sample.split(split_data$CHD_in_10Yrs,SplitRatio = 0.7)
+train.xg <- subset(split_data,split==TRUE)
+test.xg <- subset(split_data,split==FALSE)
+
+str(xgdata)
+
+train_SMOTE.xg <- train.xg
+names(train_SMOTE)
+set.seed(369)
+
+#train_SMOTE.xg <- SMOTE(CHD_in_10Yrs~.,train,perc.over =300,perc.under=350,k=5)
+View(train.xg)
+names(train.xg)
+dim(train.xg)
+dim(test.xg)
+```
+
+
+
+BAGGING:
+---------
+
+Baggining technique is used to minimise the variance in the dataset. In the case of an outlier, bagging technique will focus on the entire dataset to create new rows which makes the outliers a less of an influential factor.
+# SPLIT for BAGIING
+```{r}
+bag <- CHD
+
+bag$Gender <- as.factor(bag$Gender)
+bag$Education <- as.factor(bag$Education)
+bag$Smoking_Status <- as.factor(bag$Smoking_Status)
+bag$BP_Medication <- as.factor(bag$BP_Medication)
+bag$Prevalent_Stroke <-as.factor(bag$Prevalent_Stroke)
+bag$Prevalent_Hypertension <- as.factor(bag$Prevalent_Hypertension)
+bag$Diabetes <- as.factor(bag$Diabetes)
+bag$CHD_in_10Yrs <-as.factor(bag$CHD_in_10Yrs)
+
+split.bag <- bag
+set.seed(369)
+split_bag=sample.split(split.bag$CHD_in_10Yrs,SplitRatio = 0.7)
+train.bag <- subset(split.bag,split_bag==TRUE)
+test.bag <- subset(split.bag,split_bag==FALSE)
+dim(test.bag)
+
+```
+
+
+```{r}
+
+#train.bag<-train.bag1[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17,18)] # Creating Training dataset for bagging
+#test.bag<-test.bag1[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17,18)] # Creating Testing dataset for bagging
+
+Bagging <- bagging(CHD_in_10Yrs~.,data=train.bag,
+                        control=rpart.control(maxdepth=6,minsplit=3)) # Applying Bagging technique
+
+
+train.bag$bag.pred.class <- predict(Bagging,train.bag,type='prob')[,2] # Prediction made on train dataset
+     
+test.bag$bag.pred.class.t <- predict(Bagging,test.bag) # Prediction made on test dataset
+
+caret::confusionMatrix(train.bag1$CHD_in_10Yrs,train.bag1$bag.pred.class) # Calculating the Matrix train data
+caret::confusionMatrix(test.bag1$CHD_in_10Yrs,test.bag1$bag.pred.class.t)# Calculating the Matrix test data
+
+
+```
+
+
+```{r}
+c = train.bag1$CHD_in_10Yrs
+d = predict(CHD.Bagging ,train.bag1,type="prob")[,2]
+pred.bag = prediction(d,c)
+
+View(kresults.df)
+perf.bag = performance(pred.bag, "tpr", "fpr")
+plot(perf.bag)
+```
+
+BOOSTING:
+----------
+ This ensemble technique is used to create strong learner from a weak learner.
+ This tool helps to minimise biasness of the model.
+ 
+ 1. GRADIENTBOOSTING:
+ Very powerful tool when it comes to catergorical dataset.
+ 
+```{r}
+
+train.gbm<-train_SMOTE[,] # Creating Training dataset for bagging
+test.gbm<-test[,] # Creating Testing dataset for bagging
+train.gbm
+gbm.fit <- gbm(formula = CHD_in_10Yrs~.,distribution = "bernoulli",
+               data=train.gbm[,1:8],n.trees=100,interaction.depth=1,
+               shrinkage=0.001,cv.folds=5,n.cores=NULL,verbose =FALSE)
+View(train.gbm)
+
+```
+XGBOOST:
+--------
+
+```{r}
+
+#train.xg<-train[,] # Creating Training data set for bagging
+#test.xg<-test[,] # Creating Testing data set for bagging
+names(train.xg)
+xgtrain.num <- train.xg[,]
+xgtest.num <- test.xg[,]
+
+xg_features_train <-as.matrix(xgtrain.num[,1:15]) 
+xg_label_train <- as.matrix(xgtrain.num[,16])
+xg_features_test <- as.matrix(xgtest.num[,1:15])
+
+
+
+xgb.fit <- xgboost(data=xg_features_train,
+                   label=xg_label_train,
+                   eta=0.5,
+                   max_depth=3,
+                   min_child_weight=3,
+                   nrounds=50,
+                   nfold=5,
+                   objective="binary:logistic",
+                   verbose=0,
+                   early_stopping_rounds=10)
+
+
+#XG PREDICTION
+xgtrain.num$xgb.prob.1 <- predict(xgb.fit,xg_features_train,type="prob")
+xgtest.num$xgb.prob.2 <- predict(xgb.fit,xg_features_test,tupe="prob")
+
+# XG CLASSIFICATION
+
+xgtrain.num$xgb.class1 <- as.factor(ifelse(xgtrain.num$xgb.prob.1 >=0.85,'1','0'))
+xgtest.num$xgb.class2 <- as.factor(ifelse(xgtest.num$xgb.prob.2 >=0.85,'1','0'))
+#0.5038596
+View(xgtrain.num)
+
+InformationValue::optimalCutoff(ifelse(xgtrain.num$xgb.class1=='1',1,0),
+                                xgtrain.num$xgb.prob.1 )
+
+
+caret::confusionMatrix(as.factor(xgtrain.num$CHD_in_10Yrs), xgtrain.num$xgb.class1) # Calculating the Matrix train data
+caret::confusionMatrix(as.factor(xgtest.num$CHD_in_10Yrs), xgtest.num$xgb.class2)# Calculating the Matrix test data
+str(xgtrain.num)
+InformationValue:: Concordance(ifelse(xgtrain.num$CHD_in_10Yrs=='1','1','0'),xgtrain.num$xgb.prob.1 )
+
+InformationValue:: Concordance(ifelse(xgtest.num$CHD_in_10Yrs=='1','1','0'),xgtest.num$xgb.prob.2)
+```
+
+
+
+# ROC
+
+```{r}
+pred.xg <- prediction(xgtest.num$xgb.prob.2,xgtest.num$CHD_in_10Yrs)
+perf.xg <- performance(pred.xg,"tpr","fpr")
+plot(perf.xg,col="blue",main="ROC Plot xg - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+# AUC
+
+```{r}
+test.xg.auc <- performance(pred.xg,"auc")
+test.xg.auc<- as.numeric(test.xg.auc@y.values)
+round(test.xg.auc*100,2)
+```
+
+# KS Statistics
+```{r}
+test.xg.ks <-max(attr(perf.xg,"y.values")[[1]]-attr(perf.xg,"x.values")[[1]])
+test.xg.ks
+```
+
+ 

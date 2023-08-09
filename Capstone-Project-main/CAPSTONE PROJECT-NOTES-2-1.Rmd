@@ -1,0 +1,367 @@
+---
+title: "CAPSTONE PROJECT - NOTES 2"
+author: "Karthik"
+date: "5/27/2020"
+output:
+  word_document: default
+  html_document: default
+---
+# LIBRARIES
+```{r}
+
+library("VIM")      # Missing Values visualization
+library("dplyr")    # Pre-processing missing value analysis
+library("ggplot2")  # Plot Missing Values
+library("gridExtra")# Identify Missing Value Mechanism
+library("BaylorEdPsych") 
+library("mice")
+library("ggplot2")
+library("naniar") # Visualising Missing Values
+library("corrplot") # Correlation Analysis
+library ("VIM") # Inspect & Visualize the pattern of missing values and analyse.
+library("esquisse")
+library("dplyr")
+#install.packages("mice")
+library("tidyverse")
+#install.packAges("VIM")
+library("fmsb") # Correlation VIF analysis
+library("MASS")
+library("psych")
+```
+
+```{r}
+NA_CHD <- data
+NA_CHD$Gender <- as.factor(NA_CHD$Gender)
+NA_CHD$Education <- as.factor(NA_CHD$Education)
+NA_CHD$Smoking_Status <- as.factor(NA_CHD$Smoking_Status)
+NA_CHD$BP_Medication <- as.factor(NA_CHD$BP_Medication)
+NA_CHD$Prevalent_Stroke <-as.factor(NA_CHD$Prevalent_Stroke)
+NA_CHD$Prevalent_Hypertension <- as.factor(NA_CHD$Prevalent_Hypertension)
+NA_CHD$Diabetes <- as.factor(NA_CHD$Diabetes)
+NA_CHD$CHD_in_10Yrs <-as.factor(NA_CHD$CHD_in_10Yrs)
+
+
+colnames(NA_CHD)
+# Changing Binary level to String for "Gender"attribute
+levels(NA_CHD$Gender) <-c("Female","Male")
+levels(NA_CHD$Gender)
+
+# Changing Binary level to String for "CHD_in_10Yrs"attribute
+levels(NA_CHD$CHD_in_10Yrs)<- c("Safe","Risk")
+
+# Changing Binary level to String for "Smoking_Status"attribute
+levels(NA_CHD$Smoking_Status)<- c("Non-Smoker","Smoker")
+
+# Changing Binary level to String for "BP Meds"attribute
+levels(NA_CHD$BP_Medication) <- c("No","Yes")
+table(NA_CHD$BP_Medication)
+# Changing Binary level to String for "Prevalent_Stroke" attribute
+levels(NA_CHD$Prevalent_Stroke) <- c("No","Yes")
+
+# Changing Binary level to String for "Prevalent_Hypertension" attribute
+levels(NA_CHD$Prevalent_Hypertension) <- c("No","Yes")
+
+# Changing Binary level to String for "Diabetes" attribute
+levels(NA_CHD$Diabetes) <- c("No","Yes")
+
+View(NA_CHD)
+```
+# 1.0  MISSING VALUE ANALYSIS
+
+##1.1 Missing Value Mechanisam Identification
+###1.1.1 Aggregation Plots  
+```{r}
+aggr(NA_CHD[,-17], numbers = TRUE, prop = c(TRUE, FALSE))
+# number =TRUE - To display numbers on top of the bar.
+# prop- TRUE : Indicating whether to use proportions of missing values.
+#       FALSE :Indicating whether to use total amount of missing values.
+
+names(NA_CHD)
+View(NA_CHD)
+```
+The left hand plot indicates that most of the missing values are from glucose attribute.On the blue square indicate the presence value and the red ones are missing values. There are 3658 of complete rows and
+
+```{r}
+# The combined Aggregation Plot
+aggr(NA_CHD[,-17], combined = TRUE, numbers = TRUE,
+     sortVars=TRUE,labels=names(NA_CHD[,-17]),
+     cex.axis=.7, gap=.6,
+     col=c("skyblue","red"),
+     ylab=c("Proportion of missingness","Missingness Pattern"),
+     main="Missing- Observed data- Full Dataset")
+
+
+```
+
+###1.1.2 Spinogram and Spineplot
+####1.1.2.1 Spinogram - Glucose on Education
+Spinogram used for missing values at numeric variables and Spineplot used for missing values at catergorical variables. Most number of NA entries have been observed under "Glucose" and "Education" attribute. Hence, it's worth investigating for evidence of any patterns between these two variable.
+```{r}
+
+spineMiss(NA_CHD[, c("Education", "Glucose")],
+          selection = c("any", "all"),
+          col=c("skyblue","red"),
+          main="Spine Plot - Glucose Vs Education")
+?spineMiss
+```
+
+
+####1.1.2.2 Spineplot - Education on Glucose
+It is worth investigating the aforementioned NA_CHDset with spineplot.
+```{r}
+spineMiss(NA_CHD[, c("Glucose", "Education")],
+                 main="Spine Plot - Education on Glucose")
+```
+
+
+### 1.1.3 Mosaic Plot
+
+```{r}
+library("dplyr")
+NA_CHD <- NA_CHD %>%mutate(CHD_in_10Yrs = ifelse(grepl("YES", CHD_in_10Yrs), TRUE, FALSE))
+mosaicMiss(NA_CHD[, c("Gender", "CHD_in_10Yrs", "Glucose")], 
+           highlight = 3, plotvars = 1:2, miss.labels = FALSE)
+View(NA_CHD)
+```
+
+The size of each tile indicates the glucose attribute details. Left most column is the patients of safe and right most column states the risk of getting CHD in 10 years from the time of testing. Among the CHD risky patients most of the information are available on male customers.Difference on NA entries between Risk and safe patients on both sex are very small and deemed to consider significant.
+
+### 1.1.4 Parallel Boxplot
+
+In the parallel boxplot analysis the entire dataset is divided into 2 box plot. One is 
+plot with observed data and other plot is with the missing data. This method will interpret the impact of distributed values due to missing values.
+```{r}
+NA_CHD <- NA_CHD %>% mutate(GlucoseLogScale = log(NA_CHD$Glucose)) 
+pbox(NA_CHD[, c("GlucoseLogScale", "Education")])
+```
+The left most boxplot indicates the distribution of glucose with observed and missing values. The blue boxplot is the distribution of glucose of patients with education information verified. Right most boxplot is the glucose distribution with the missing value of the subset variable education. 
+
+Both the boxplot of the full glucose and the glucose with only observed data looks almost equal.Hence, it can be said that missing values from educational information variable does not impact the glucose variable distribution.
+
+
+### 1.1.5 Inspecting Rows and Coloumns data for more than 5% Missingness.
+First only numerical data are inspected.
+```{r}
+# Removal of categorical for inspection
+NA_CHD_mice <- NA_CHD[,-c(17)]
+View(NA_CHD_mice)
+# Function to calculate the percentage.
+PercentMiss <-function(x){sum(is.na(x))/length(x)*100}
+length(CHD)
+# Investigate the Numerical Column
+Missing_Col<-apply(NA_CHD_mice[,-c(1,3,4,6,7,8,9,16)],2,PercentMiss)
+Missing_Col
+
+# Investigate the Rows
+MissingRows <-apply(NA_CHD_mice[,-c(1,3,4,6,7,8,9,16)],1,PercentMiss)
+MissingRows
+
+```
+
+
+
+```{r}
+# Investigating the NA rows.
+table(MissingRows)
+vis_miss(NA_CHD_mice,cluster=TRUE)
+gg_miss_upset(NA_CHD_mice)
+```
+
+
+Let's exclude people with more than 5% of missing data.
+```{r}
+
+ReplacePeople <- NA_CHD_mice[MissingRows < 5,] # Rows < 5% and All columns - Eligible to treat
+
+dim(ReplacePeople)
+# Checking for NA entries with less than 5% on each ROWS.
+anyNA(ReplacePeople) 
+# 5 Number summary to view NA entries on GOOD ROWS 
+summary(ReplacePeople) 
+# Bad Rows. More than 5% and not worth replacing. - Eliminate
+DontReplacePeople <- NA_CHD_mice[MissingRows > 5,] 
+# 5 Number summary to view NA entries on BAD ROWS 
+summary(DontReplacePeople) 
+```
+
+
+Let's exclude variable with more than 5% missing data.
+NOTE: 
+ReplacePeople:
+    1. Replace col - <5% Rows and Columns -Treat
+    2. Dont Replace Col - Categorical / too much data missing - Eliminate
+    
+DontReplacePeople <- more than 5% of row.
+
+
+```{r}
+View(ReplaceCol)
+# Treat only <5% missing numerical
+ReplaceCol <-ReplacePeople[,-c(1,3,4,6,7,8,9,15,16)] 
+dim(ReplaceCol)   # Dimention of the sub-dataset with eleigible variables. 
+anyNA(ReplaceCol) # Check for NA
+
+# Don't treat categorical and >5% NA
+DontColn <-ReplacePeople[,c(1,3,4,6,7,8,9,15,16)]  
+anyNA(DontColn) # Check for NA
+summary(ReplaceCol)
+
+```
+
+
+#--------------------------------
+##2.0 OUTLIER DATA ANLYSIS
+###2.1 MAHALANOBIS ANALYSIS
+#### 2.1.1 Mahalanobis Technique - Cov and Mean with data centrerd 100%
+```{r}
+# Copying the original data set for outlier treatment.
+CHD_mahal <-CHD
+head(CHD_mahal[,-c(1,3,4,6,7,8,9,16)]) # Only numerical columns for Mahalanobis Analysis.
+
+# QQ-Plot with the original outlier values on Numerical Variables.
+outlier(CHD_mahal[,-c(1,3,4,6,7,8,9,16)])
+
+# Mahalanobis Distance Calculation
+mahal<-mahalanobis(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],
+                   colMeans(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],na.rm=TRUE),
+                   cov(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],
+                       use="pairwise.complete.obs"))
+
+# Setting a cutoff value
+cutoff <-qchisq(.999,ncol(CHD_mahal[,-c(1,3,4,6,7,8,9,16)]))
+
+# All values which are below cutoff is stored at noout dataset
+noout <-CHD_mahal[mahal <cutoff,]
+
+# QQ plot after Mahalanobis applicaiton
+outlier(noout[,-c(1,3,4,6,7,8,9,16)])
+dim(CHD_mahal)
+dim(CHD)
+dim(noout76)
+
+```
+
+#### 2.1.2 Mahalanobis Technique - Cov and Mean around centered 75% data 
+
+```{r}
+# Co-variance calculation around the most centered 75% of the data. 
+output75 <-cov.mcd(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],
+                   quantile.used=nrow(CHD_mahal[,-c(1,3,4,6,7,8,9,16)])*0.75)
+
+# Mahalanobis Distance calculation with the new mean and MCD around 75% of the data
+mhmcd75 <-mahalanobis(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],
+                      output75$center,output75$cov)
+?cov.mcd
+#
+mahal<-mahalanobis(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],
+                   colMeans(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],na.rm=TRUE),
+                   cov(CHD_mahal[,-c(1,3,4,6,7,8,9,16)],
+                       use="pairwise.complete.obs"))
+test<-CHD_mahal[mhmcd75,]
+# Cutoff value setoff for new MD calculation with MCD
+cutoff75 <-qchisq(.999,ncol(CHD_mahal[,-c(1,3,4,6,7,8,9,16)]))
+any_na(CHD_mahal)
+summary(mhmcd75 <cutoff)
+# All values which are below cutoff is stored at noout75 dataset
+noout75 <-CHD_mahal[mhmcd75 <cutoff75,]
+dim(noout75)
+dim(CHD_mahal)
+dim(test)
+# Check the QQ plot with the minimum covariance determinat method.
+outlier(noout75[,-c(1,3,4,6,7,8,9,16)])
+```
+#-----------------------------------------------
+# 3.0 EXPLORATORY DATA ANALYSIS
+###3.1 Demographic Analysis - Gender Vs Age Vs.Education on CHD Risk
+
+
+```{r}
+# Bar Plot - Gender Vs Age Vs. Education on CHD Risk
+ggplot(CHD) +
+ aes(x = Gender, y = Age, fill = Education) +
+ geom_boxplot() +
+ scale_fill_viridis_d(option = "plasma") +
+ labs(x = "Risk of CHD against Gender", y = "Age (Years)", title = "Box Plot - Demographic Analysis", subtitle = "Age Vs. Gender Vs. Education on CHD Risk", fill = "Years of Education") +
+ theme_minimal() +
+ facet_wrap(vars(CHD_in_10Yrs))
+
+# Filtering Risk Female through Demographic Analysis.
+Risk.Female.df<-CHD %>% select(CHD_in_10Yrs,Gender,Education,Age) %>% filter(CHD_in_10Yrs=="Risk" & Gender =="Female")
+Risk.Female.df
+
+# Mean summary on Risk Female Age based on Educational history.
+Mean_Risk_Female <- by(Risk.Female.df$Age,INDICES=Risk.Female.df$Education,
+                       FUN = mean)
+
+```
+
+```{r}
+# Mean summary on Risk Female Age based on Educational history.
+Mean_Age_Risk_Female <- by(Risk.Female.df$Age,INDICES=Risk.Female.df$Education,
+                       FUN = mean)
+chisq.test(Mean_Age_Risk_Female)
+
+```
+
+###3.2 Behavioural Analysis -Gender Vs No of Cigs Smoked - 10 Year CHD 
+```{r}
+ggplot(noout75) +
+ aes(x = Gender, y = No_Cigarattes) +
+ geom_boxplot(fill = "#26828e") +
+ labs(x = "Gender", y = "Number of Cigarattes Smoked", title = "Behavioural Analysis", subtitle = "Gender Vs No of Cigs Smoked - 10 Year CHD ") +
+ theme_minimal() +
+ facet_wrap(vars(CHD_in_10Yrs))
+
+```
+
+```{r}
+# Filtering Risk Male through Demographic Analysis.
+Male.Cigs.df<-CHD %>% select(CHD_in_10Yrs,Gender,No_Cigarattes) %>% filter( Gender =="Male")
+Male.Cigs.df
+
+# Mean summary on Risk Male smoked cigarettes rate based.
+Mean_Male.Cigs <- by(Male.Cigs.df$No_Cigarattes,
+                     INDICES=Male.Cigs.df$CHD_in_10Yrs,FUN = mean)
+Mean_Male.Cigs
+range(noout75$No_Cigarattes)
+
+chisq.test(Mean_Male.Cigs)
+
+```
+
+##3.3 Patient's Health Analysis - Prevalent Stroke Vs Systolic BP Vs CHD_inn_10Yrs
+```{r}
+
+ggplot(noout75) +
+ aes(x = Prevalent_Stroke, y = Systolic_BP) +
+ geom_boxplot(fill = "#1f9e89") +
+ labs(x = "Prevalent Stroke History", y = "Systolic Bloop Pressure", title = "Patient's Health Analysis", subtitle = "Prevalent Stroke Vs Systolic BP Vs CHD_inn_10Yrs") +
+ theme_minimal() +
+ facet_wrap(vars(CHD_in_10Yrs))
+```
+
+```{r}
+# Filtering Risk Male through Demographic Analysis.
+Sys.Strk.Safe.df<-noout75 %>% select(Systolic_BP,Prevalent_Stroke,CHD_in_10Yrs) %>% filter(Prevalent_Stroke =="Yes" & CHD_in_10Yrs=="Safe")
+
+Mean_Sys.Strk.Safe <- by(Sys.Strk.Safe.df$Systolic_BP,
+                     INDICES=Sys.Strk.Safe.df$CHD_in_10Yrs,FUN = mean)
+
+Mean_Sys.Strk.Safe
+
+
+# Filtering Risk Male through Demographic Analysis.
+Sys.Strk.Risk.df<-noout75 %>% select(Systolic_BP,Prevalent_Stroke,CHD_in_10Yrs) %>% filter(Prevalent_Stroke =="No" & CHD_in_10Yrs=="Risk")
+
+Mean_Sys.Strk.Risk <- by(Sys.Strk.Risk.df$Systolic_BP,
+                     INDICES=Sys.Strk.Risk.df$CHD_in_10Yrs,FUN = mean)
+
+Mean_Sys.Strk.Risk
+
+
+SystolicBP_Mean_Chi <- c(139.8663,142.3182)
+chisq.test(SystolicBP_Mean_Chi)
+```
+
+
+

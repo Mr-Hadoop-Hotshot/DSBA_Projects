@@ -1,0 +1,164 @@
+---
+title: "KNN"
+author: "Karthik"
+date: "6/14/2020"
+output: html_document
+---
+
+# 1.0 Libraries
+```{r}
+library("class")
+#install.packages("ISLR")
+library("ISLR")
+library("caTools")
+library("caret")
+library(ROCR)# To visualize ROCR curve
+```
+
+
+
+# 2.0 Data Split
+```{r}
+KNN <- CHD
+
+
+KNN$Gender <- as.factor(CHD$Gender)
+KNN$Education <- as.factor(CHD$Education)
+KNN$Smoking_Status <- as.factor(CHD$Smoking_Status)
+KNN$BP_Medication <- as.factor(CHD$BP_Medication)
+KNN$Prevalent_Stroke <-as.factor(CHD$Prevalent_Stroke)
+KNN$Prevalent_Hypertension <- as.factor(CHD$Prevalent_Hypertension)
+KNN$Diabetes <- as.factor(CHD$Diabetes)
+KNN$CHD_in_10Yrs <-as.factor(CHD$CHD_in_10Yrs)
+
+split_data.knn <- KNN
+set.seed(3621)
+split=sample.split(split_data.knn $CHD_in_10Yrs,SplitRatio = 0.7)
+train.knn <- subset(split_data.knn ,split==TRUE)
+test.knn <- subset(split_data.knn ,split==FALSE)
+str(KNN)
+levels(KNN$CHD_in_10Yrs)
+dim(test.knn)
+```
+
+# 1.1 KNN Model Building.
+```{r}
+
+KNN_model.11<-knn3(CHD_in_10Yrs~.,train.knn,k=11)
+#colnames(train)
+kresults.df = data.frame(real=train.knn$CHD_in_10Yrs)
+#View(kresults.df)
+# MODEL K=11
+kresults.df$knn.prob.11 <- predict(KNN_model.11,train.knn,type="prob")[,2]
+
+InformationValue::optimalCutoff(ifelse(kresults.df$real=='1',1,0),
+                                kresults.df$knn.prob.11)
+kresults.df$knn.class.11 <- as.factor(ifelse(kresults.df$knn.prob.11>=0.4572727,'1','0'))
+
+```
+
+
+#1.2 Confusion matrix K=11
+
+```{r}
+caret::confusionMatrix(kresults.df$real,kresults.df$knn.class.11)
+InformationValue:: Concordance(ifelse(kresults.df$real=='1','1','0'),kresults.df$knn.prob.11)
+```
+
+#1.3 KNN with K=21
+```{r}
+
+KNN_model.21<-knn3(CHD_in_10Yrs~.,train.knn,k=9)
+#colnames(train)
+kresults.df = data.frame(real=train.knn$CHD_in_10Yrs)
+#View(kresults.df)
+kresults.df$knn.prob.21 <- predict(KNN_model.21,train.knn,type="prob")[,2]
+
+InformationValue::optimalCutoff(ifelse(kresults.df$real=='1',1,0),
+                                kresults.df$knn.prob.21)
+kresults.df$knn.class.21 <- as.factor(ifelse(kresults.df$knn.prob.21>=0.3377778,'1','0'))
+```
+#1.4 Confusion matrix K=21
+```{r}
+
+caret::confusionMatrix(kresults.df$real,kresults.df$knn.class.21)
+InformationValue:: Concordance(ifelse(kresults.df$real=='1','1','0'),kresults.df$knn.prob.21)
+```
+
+
+#1.5 KNN = 11 on TEST Dataset
+```{r}
+
+kresults.test <- data.frame(real=test.knn$CHD_in_10Yrs)
+
+#View(kresults.test)
+
+kresults.test$knn.prob.11.t <- predict(KNN_model.11,test.knn,type="prob")[,2]
+kresults.test$knn.class.11.t <- ifelse(kresults.test$knn.prob.11.t >=0.4572727,'1','0')
+kresults.test$knn.class.11.t <- as.factor(kresults.test$knn.class.11.t)
+#View(results.df)
+
+```
+
+
+```{r}
+caret::confusionMatrix(kresults.test$real,kresults.test$knn.class.11.t)
+InformationValue:: Concordance(ifelse(kresults.test$real=='1','1','0'),kresults.test$knn.prob.11.t)
+```
+#1.5 KNN = 21 on TEST Dataset
+
+```{r}
+
+kresults.test <- data.frame(real=test.knn$CHD_in_10Yrs)
+
+#View(kresults.test)
+
+kresults.test$knn.prob.21.t <- predict(KNN_model.21,test.knn,type="prob")[,2]
+kresults.test$knn.class.21.t <- ifelse(kresults.test$knn.prob.21.t >=0.3377778,'1','0')
+kresults.test$knn.class.21.t <- as.factor(kresults.test$knn.class.21.t)
+#View(results.df)
+
+```
+
+```{r}
+caret::confusionMatrix(kresults.test$real,kresults.test$knn.class.21.t)
+InformationValue:: Concordance(ifelse(kresults.test$real=='1','1','0'),kresults.test$knn.prob.21.t)
+```
+
+#1.6 GOODNESS OF THE MODEL VISUALISATION TRAIN
+
+```{r}
+
+```
+
+
+#6.9 ROC
+
+```{r}
+pred.knn <- prediction(kresults.test$knn.prob.11.t,test.knn$CHD_in_10Yrs)
+perf.knn <- performance(pred.knn,"tpr","fpr")
+plot(perf.knn,col="blue",main="ROC Plot knn - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+#7.0 AUC
+
+
+```{r}
+knn.train.auc=performance(pred.knn,"auc")
+
+knn.train.auc = as.numeric(knn.train.auc@y.values)
+knn.train.auc
+```
+
+#7.1 KS Statistics
+```{r}
+ks_table.knn <-max(attr(perf.knn, "y.values")[[1]] - (attr(perf.knn, "x.values")[[1]]))
+
+ks_table.knn
+```
+
+
+
+
+
+

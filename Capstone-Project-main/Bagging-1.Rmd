@@ -1,0 +1,99 @@
+---
+title: "Bagging"
+author: "Karthik"
+date: "6/20/2020"
+output: html_document
+---
+
+
+BAGGING:
+---------
+
+Baggining technique is used to minimise the variance in the dataset. In the case of an outlier, bagging technique will focus on the entire dataset to create new rows which makes the outliers a less of an influential factor.
+#1.0  SPLIT for BAGIING
+```{r}
+bag <- CHD
+
+bag$Gender <- as.factor(bag$Gender)
+bag$Education <- as.factor(bag$Education)
+bag$Smoking_Status <- as.factor(bag$Smoking_Status)
+bag$BP_Medication <- as.factor(bag$BP_Medication)
+bag$Prevalent_Stroke <-as.factor(bag$Prevalent_Stroke)
+bag$Prevalent_Hypertension <- as.factor(bag$Prevalent_Hypertension)
+bag$Diabetes <- as.factor(bag$Diabetes)
+bag$CHD_in_10Yrs <-as.factor(bag$CHD_in_10Yrs)
+
+split.bag <- bag
+set.seed(369)
+split_bag=sample.split(split.bag$CHD_in_10Yrs,SplitRatio = 0.7)
+train.bag <- subset(split.bag,split_bag==TRUE)
+test.bag <- subset(split.bag,split_bag==FALSE)
+dim(test.bag)
+
+```
+
+
+#2.0 BAGGING Model Building
+```{r}
+Bagging <- bagging(CHD_in_10Yrs~.,data=train.bag,
+                        control=rpart.control(maxdepth=6,minsplit=3)) # Applying Bagging technique
+
+bag.results.df <- data.frame(real=train.bag$CHD_in_10Yrs)
+bag.results.df$bag.prob <- predict(Bagging,train.bag,type='prob')[,2] # Prediction made on train dataset
+
+# Optimal Cutoff
+InformationValue::optimalCutoff(ifelse(bag.results.df$real=="1",1,0),bag.results.df$bag.prob)
+
+bag.results.df$bag.class <- ifelse(bag.results.df$bag.prob >=0.21,"1","0")
+bag.results.df$bag.class = as.factor(bag.results.df$bag.class)
+
+
+caret::confusionMatrix(bag.results.df$real,bag.results.df$bag.class) # Calculating the Matrix train data
+InformationValue::Concordance(ifelse(bag.results.df$real=='1','1','0'),bag.results.df$bag.prob)
+
+```
+
+#3.0 Test Dataset
+```{r}
+#Creating a new dataset with the results
+bag.results.df.test <- data.frame(real=test.NB$CHD_in_10Yrs)
+
+bag.results.df.test$bag.prob.test <-predict(Bagging,test.bag,type='prob')[,2]
+
+```
+
+
+
+Creating class on the predicted model.
+
+```{r}
+bag.results.df.test$bag.class.test <- as.factor(ifelse(bag.results.df.test$bag.prob.test >=0.5,'1','0'))
+```
+
+#4.0 Test Confussion Matrix
+```{r}
+
+caret::confusionMatrix(bag.results.df.test$real,bag.results.df.test$bag.class.test)
+
+InformationValue:: Concordance(ifelse(bag.results.df.test$real=='1','1','0'),bag.results.df.test$bag.prob.test)
+```
+#5.0 ROC
+
+```{r}
+pred.bag <- prediction(bag.results.df.test$bag.prob.test,test.bag$CHD_in_10Yrs)
+perf.bag <- performance(pred.bag,"tpr","fpr")
+plot(perf.bag,col="blue",main="ROC Plot BAGGING - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+#6.0 AUC
+```{r}
+test.auc.bag <- performance(pred.bag,"auc")
+test.auc.bag<- as.numeric(test.auc.bag@y.values)
+round(test.auc.bag*100,2)
+```
+
+#7.0 KS Statistics
+```{r}
+ks_table.bag <-max(attr(perf.bag, "y.values")[[1]] - (attr(perf.bag, "x.values")[[1]]))
+
+ks_table.bag
+```

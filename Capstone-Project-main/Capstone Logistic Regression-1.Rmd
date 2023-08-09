@@ -1,0 +1,234 @@
+---
+title: "Logistic Regression Model - Capstone"
+author: "Karthik"
+date: "6/19/2020"
+output: html_document
+---
+
+#1.0 Libraries
+```{r}
+library("MASS")  # STEP AIC function
+library("caret") # Confustion Matrix
+library("DMwR")  # SMOTE
+library("car")   # VIF function 
+
+library("InformationValue") # Optimal cutoff
+library("caTools")
+library("ROCR")
+```
+
+
+
+# 2.0 Data Split
+```{r}
+Log.Reg <- CHD
+
+
+Log.Reg$Gender <- as.factor(CHD$Gender)
+Log.Reg$Education <- as.factor(CHD$Education)
+Log.Reg$Smoking_Status <- as.factor(CHD$Smoking_Status)
+Log.Reg$BP_Medication <- as.factor(CHD$BP_Medication)
+Log.Reg$Prevalent_Stroke <-as.factor(CHD$Prevalent_Stroke)
+Log.Reg$Prevalent_Hypertension <- as.factor(CHD$Prevalent_Hypertension)
+Log.Reg$Diabetes <- as.factor(CHD$Diabetes)
+Log.Reg$CHD_in_10Yrs <-as.factor(CHD$CHD_in_10Yrs)
+
+split_data <- Log.Reg
+set.seed(369)
+split=sample.split(split_data$CHD_in_10Yrs,SplitRatio = 0.7)
+train.lm <- subset(split_data,split==TRUE)
+test.lm <- subset(split_data,split==FALSE)
+str(Log.Reg)
+
+round((prop.table(table(train.lm$CHD_in_10Yrs)))*100,2)
+round((prop.table(table(test.lm$CHD_in_10Yrs)))*100,2)
+round((prop.table(table(Log.Reg$CHD_in_10Yrs)))*100,2)
+```
+
+```{r}
+
+#train.LR <- train_SMOTE1
+model.lm <- glm(formula = CHD_in_10Yrs~Age+No_Cigarattes+Diastolic_BP+Systolic_BP+Total_Choloestrol+BMI+Heart_Rate+Glucose,data=train.lm,family="binomial")
+
+summary(model.lm)
+
+```
+
+
+# 3.1 Variable selection
+## 3.1.1 Continuous Variable
+```{r}
+vif(model.lm)
+model.mlr.step =stepAIC(model.lm,direction = "both",k=5) 
+```
+#
+```{r}
+
+model.lm.step <- glm(formula = CHD_in_10Yrs~Age+No_Cigarattes+Glucose+Diastolic_BP,data=train.lm,family="binomial")
+
+summary(model.lm.step)
+```
+
+# 4.0 Model Prediction - Continuous
+
+```{r}
+View(LR)
+# Preidict Probability
+LR <-data.frame(Real =train.lm$CHD_in_10Yrs)
+
+LR$lm.predict.step = predict(model.lm.step,train.lm,type="response")
+
+# Predict Class Based on the probability
+LR$lm.class.step = ifelse(LR$lm.predict.step >=  0.4965378,"1","0")
+
+LR$lm.class.step = as.factor(LR$lm.class.step)
+
+# Optimal Cutoff
+optimalCutoff(ifelse(LR$lm.class.step=="1",1,0),LR$lm.predict.step)
+
+```
+
+
+# 5.0 Confussion Matrix
+```{r}
+caret::confusionMatrix(LR$Real,LR$lm.class.step)
+InformationValue:: Concordance(ifelse(LR$Real=='1','1','0'),LR$lm.predict.step)
+```
+
+#6.0 Catergorical selection
+#6.1 Gender
+
+```{r}
+table(train.lm$Gender,train$CHD_in_10Yrs)
+Female_Risk_Rate <- (177/(1252+77))*100
+Female_Risk_Rate
+
+Male_Risk_Rate <- (213/(919+213))*100
+Male_Risk_Rate
+```
+
+#6.2 BP_Medication
+```{r}
+table(train.lm$BP_Medication,train.lm$CHD_in_10Yrs)
+
+NoBP_Med_Risk_Rate <- (365/(365+2130))*100
+NoBP_Med_Risk_Rate
+
+UnderBP_Med_Risk_Rate <- (25/(365+25))*100
+UnderBP_Med_Risk_Rate
+
+```
+
+
+
+#6.3 Prevalent_Stroke
+
+```{r}
+table(train.lm$Prevalent_Stroke,train.lm$CHD_in_10Yrs)
+
+NoPrevalent_Stroke_Risk_Rate <- (387/(387+2162))*100
+NoPrevalent_Stroke_Risk_Rate
+
+UnderPrevalent_Stroke_Risk_Rate <- (3/(3+9))*100
+UnderPrevalent_Stroke_Risk_Rate
+
+```
+
+#6.4 Prevalent_Hypertension
+```{r}
+table(train.lm$Prevalent_Hypertension,train.lm$CHD_in_10Yrs)
+
+NoPrevalent_Hyp_Risk_Rate <- (187/(187+1585))*100
+NoPrevalent_Hyp_Risk_Rate
+
+UnderPrevalent_Hyp_Risk_Rate <- (203/(203+586))*100
+UnderPrevalent_Hyp_Risk_Rate
+
+```
+
+
+#6.5 Diabetes
+```{r}
+
+table(train.lm$Diabetes,train.lm$CHD_in_10Yrs)
+
+NoDiabetes_Risk_Rate <- (365/(365+2133))*100
+NoDiabetes_Risk_Rate
+
+UnderDiabetes_Risk_Rate <- (25/(25+38))*100
+UnderDiabetes_Risk_Rate
+39-14
+
+```
+
+#6.6  Model with Numerical & Categorical
+```{r}
+
+model.lm.final <- glm(formula = CHD_in_10Yrs~Age+No_Cigarattes+Glucose+Systolic_BP+Prevalent_Hypertension,data=train.lm,family="binomial")
+
+summary(model.lm.final)
+stepAIC(model.lm.final,direction = "both",k=5) 
+names(train.lm)
+vif(model.lm.final)
+```
+#6.7 Preidict Probability
+```{r}
+
+LR$lm.predict.final = predict(model.lm.final,train.lm,type="response")
+
+# Predict Class Based on the probability
+LR$lm.class.final = ifelse(LR$lm.predict.final >=0.6,"1","0")
+
+LR$lm.class.final = as.factor(LR$lm.class.final)
+
+# Optimal Cutoff
+optimalCutoff(ifelse(LR$lm.class.final=="1",1,0),LR$lm.predict.final)
+names(LR)
+
+caret::confusionMatrix(LR$Real,LR$lm.class.final)
+InformationValue:: Concordance(ifelse(LR$Real=='1','1','0'),LR$lm.predict.final)
+```
+
+# 6.8 TEST
+
+```{r}
+
+LR1 <-data.frame(Real =test.lm$CHD_in_10Yrs)
+# Preidict Probability
+LR1$lm.predict.test = predict(model.lm.final,test.lm,type="response")
+
+# Predict Class Based on the probability
+LR1$lm.class.test = ifelse(LR1$lm.predict.test >=0.6,"1","0")
+
+
+LR1$lm.class.test= as.factor(LR1$lm.class.test)
+
+
+caret::confusionMatrix(LR1$Real,LR1$lm.class.test)
+InformationValue:: Concordance(ifelse(LR1$Real=='1','1','0'),LR1$lm.predict.test)
+```
+
+#6.9 ROC
+
+```{r}
+pred.lm <- prediction(LR1$lm.predict.test,test.lm$CHD_in_10Yrs)
+perf.lm <- performance(pred.lm,"tpr","fpr")
+plot(perf.lm,col="blue",main="ROC Plot lm - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+#7.0 AUC
+
+```{r}
+test.auc <- performance(pred.lm,"auc")
+test.auc<- as.numeric(test.auc@y.values)
+round(test.auc*100,2)
+```
+
+#7.1 KS Statistics
+```{r} 
+test.ks <-max(attr(perf.lm,"y.values")[[1]]-attr(perf.lm,"x.values")[[1]])
+test.ks
+```
+
+
+

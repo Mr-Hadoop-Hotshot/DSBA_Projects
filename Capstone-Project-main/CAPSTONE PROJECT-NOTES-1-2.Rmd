@@ -1,0 +1,750 @@
+---
+title: "CAPSTONE PROJECT - NOTES - 1"
+author: "Karthik"
+date: "5/10/2020"
+output:
+  word_document: default
+  html_document: default
+---
+#1.0 INITIAL PREPARATION
+##1.1 Working Directory
+```{r}
+setwd("F:/Data Science/CAPSTONE/") # Set Working Directory
+getwd()
+```
+##1.2 Importing Dataset
+```{r}
+dataset <- read.csv("Coronary_heart_risk_study.csv")
+data <- dataset 
+```
+##1.3 Importing Libraries
+```{r}
+library("mice")
+library("ggplot2")
+library("naniar") # Visualising Missing Values
+library("corrplot") # Correlation Analysis
+library ("VIM") # Inspect & Visualize the pattern of missing values and analyse.
+library("esquisse")
+library("dplyr")
+#install.packages("mice")
+library("tidyverse")
+#install.packAges("VIM")
+library("fmsb") # Correlation VIF analysis
+```
+#-----------------------------------------------------------
+
+#2.0  DETAIL REPORT
+
+
+##2.1 Visual Inspection of Data
+
+```{r}
+colnames(data) # Names of Columns
+ncol(data) # Number of Columns
+
+dim(data) # Dimentions of dataset.
+
+#1,3,4,7,6,8,9)
+```
+
+##2.2 Understanding of Attributes
+```{r}
+#View(data) # View the dataset in R.
+summary(data) # Generating 5 line summary.
+
+
+names(data) <-c("Gender","Age","Education","Smoking_Status",
+               "No_Cigarattes","BP_Medication","Prevalent_Stroke",
+               "Prevalent_Hypertension","Diabetes","Total_Choloestrol",
+               "Systolic_BP","Diastolic_BP","BMI",
+               "Heart_Rate","Glucose","CHD_in_10Yrs")
+
+
+
+
+
+CHD = data
+#View(data) 
+levels(data$Diabetes)
+
+```
+
+###2.2.1 Missing Values Analysis
+
+```{r}
+# MISSING VALUE COUNTS
+#---------------------
+anyNA(data) # Checking for missing values in the dataset
+sum(is.na(data))# Total number of Missing Values
+colSums(is.na(data)) # Total missing values based on categories.
+```
+
+###2.2.2 Correlation Analysis
+```{r}
+# CORRELATION ANALYSIS
+
+str(CHD)
+
+# Converting all attribute class to numeric to apply corrplot
+
+CHD$Gender <- as.numeric(CHD$Gender)
+CHD$Smoking_Status <- as.numeric(CHD$Smoking_Status)
+CHD$BP_Medication <- as.numeric(CHD$BP_Medication)
+CHD$Prevalent_Stroke <- as.numeric(CHD$Prevalent_Stroke)
+CHD$Prevalent_Hypertension <- as.numeric(CHD$Prevalent_Hypertension)
+CHD$Diabetes <- as.numeric(CHD$Diabetes)
+CHD$Age <- as.numeric(CHD$Age)
+CHD$Education <- as.numeric(CHD$Education)
+CHD$No_Cigarattes <- as.numeric(CHD$No_Cigarattes)
+CHD$Total_Choloestrol <- as.numeric(CHD$Total_Choloestrol)
+CHD$Heart_Rate <- as.numeric(CHD$Heart_Rate)
+CHD$Glucose <- as.numeric(CHD$Glucose)
+
+# Extracting completed rows only and all columns for corrplot analysis
+CHD <- CHD[complete.cases(CHD),] # Without NAs.
+#----------------------------------------------------------------------------------
+xgdata <- CHD
+# Correlation Table
+Correlation_Table <- cor(CHD[,1:15])
+#Writing correlation table into csv file.
+write.csv(Correlation_Table,"Correlation_Table.csv")
+# Plotting correlation plot
+corrplot((cor(CHD[,1:15])),method="circle",type="full",order="hclust")
+
+```
+
+###2.2.3 Converting Data Class
+
+```{r}
+attach(CHD)  # Attaching the dataset.
+str(CHD)
+
+CHD$Gender <- as.factor(CHD$Gender)
+CHD$Education <- as.factor(CHD$Education)
+CHD$Smoking_Status <- as.factor(CHD$Smoking_Status)
+CHD$BP_Medication <- as.factor(CHD$BP_Medication)
+CHD$Prevalent_Stroke <-as.factor(CHD$Prevalent_Stroke)
+CHD$Prevalent_Hypertension <- as.factor(CHD$Prevalent_Hypertension)
+CHD$Diabetes <- as.factor(CHD$Diabetes)
+CHD$CHD_in_10Yrs <-as.factor(CHD$CHD_in_10Yrs)
+
+#Changing Column title from "Gender" to "Gender"
+colnames(CHD)[colnames(CHD)=="Gender"] <-"Gender"
+colnames(CHD) # Displaying All column names.
+
+# Changing Binary level to String for "Gender"attribute
+levels(CHD$Gender) <-c("Female","Male")
+levels(CHD$Gender)
+
+# Changing Binary level to String for "CHD_in_10Yrs"attribute
+levels(CHD$CHD_in_10Yrs)<- c("Safe","Risk")
+
+# Changing Binary level to String for "Smoking_Status"attribute
+levels(CHD$Smoking_Status)<- c("Non-Smoker","Smoker")
+
+# Changing Binary level to String for "BP Meds"attribute
+levels(CHD$BP_Medication) <- c("No","Yes")
+table(CHD$BP_Medication)
+# Changing Binary level to String for "Prevalent_Stroke" attribute
+levels(CHD$Prevalent_Stroke) <- c("No","Yes")
+
+# Changing Binary level to String for "Prevalent_Hypertension" attribute
+levels(CHD$Prevalent_Hypertension) <- c("No","Yes")
+
+# Changing Binary level to String for "Diabetes" attribute
+levels(CHD$Diabetes) <- c("No","Yes")
+
+```
+#------------------------------------------------------------
+
+##3.0 EXPLORATORY DATA ANLYSIS
+###3.1 UNIVARIATE ANALYSIS
+
+####3.1.1 Gender Patients
+
+```{r}
+Gender_Table= table(CHD$Gender) # Genderwise counts on table
+
+Gender_Table # Calling Gender count on table.
+```
+
+
+
+####3.1.2 Age
+```{r}
+attach(CHD)
+range(Age) # Min & Max of patients Age
+
+#Histogram
+ggplot(data,aes(x=Age))+geom_histogram(color="darkblue",fill='lightblue',binwidth=1)+
+  geom_vline(aes(xintercept=mean(Age)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Age)),color ="red",linetype="dashed",size=1)+
+  labs(title="Age Histogram Plot",x="Age", y = "Count")
+
+# Box plot
+boxplot(CHD$Age,horizontal = TRUE,col="blue",main = "Patient's Age Distribution", xlab= "Age in Years")
+```
+
+```{r}
+# Age OUTLIER CALCULATION
+
+attach(CHD) # Attach CHD dataset.
+
+# OUTLIER CALCULATION
+mean(Age) # AverAge Age
+median(Age) # Age centre value
+Age_IQR = IQR(Age)
+Age_IQR
+
+#OUTLIERS - Q3
+Q3_Age = quantile(Age,0.75)
+Q3_Age = unname(Q3_Age)
+Q3_Age
+
+#OUTLIERs - Q1
+Q1_Age = unname(quantile(Age,0.25))
+Q1_Age
+
+# IQR CALCULATION
+Max_Age_IQR = Q3_Age+1.5*Age_IQR # Positive Outlier Calculation
+Max_Age_IQR
+Min_Age_IQR = Q1_Age-1.5*Age_IQR # Negative Outlier Calculation
+Min_Age_IQR
+
+# No Of OUTLIERS
+sum(Age > Max_Age_IQR)
+sum(Age < Min_Age_IQR)
+# Print all Outliers
+Age[Age > Max_Age_IQR]
+Age[Age < Min_Age_IQR]
+```
+
+
+####3.1.3 Education
+```{r}
+#range(Education) # Min & Max educational history.
+table(Education)
+#mean(Education) # averAge Educational years
+#median(Education) # Centre value of the Educational distribution.
+
+```
+
+####3.1.4 Current Smoker
+```{r}
+attach(CHD)
+#range(Smoking_Status) # Min & Max 
+levels(Smoking_Status) # Classification : Smoker & Non-Smoker
+table(Smoking_Status)
+
+```
+
+####3.1.5 Cigarattes Per Day
+
+```{r}
+range(No_Cigarattes)# Min & Max cigarattes smoked
+
+#Histogram
+
+ggplot(CHD,aes(x=No_Cigarattes))+geom_histogram(color="darkblue",fill='lightblue',binwidth=1)+
+  geom_vline(aes(xintercept=mean(No_Cigarattes)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(No_Cigarattes)),color ="red",linetype="dashed",size=1)+
+  labs(title="Cigarrates per day Histogram Plot",x="Cigs per day", y = "Count")
+
+
+# Box plot
+
+boxplot(CHD$No_Cigarattes,horizontal = TRUE,col="blue",main = "Patient's Smoking Habbbit Distribution", xlab= "Cigarattes per day")
+
+```
+
+```{r}
+# OUTLIER CALCULATION
+mean(No_Cigarattes) # averAge cigarattes smoked per day.
+median(No_Cigarattes) # Centre value number of cigarattes smoked
+No_Cigarattes_IQR = IQR(No_Cigarattes)
+No_Cigarattes_IQR
+
+#OUTLIERS - Q3
+Q3_No_Cigarattes = quantile(No_Cigarattes,0.75)
+Q3_No_Cigarattes = unname(Q3_No_Cigarattes)
+Q3_No_Cigarattes
+
+#OUTLIERs - Q1
+Q1_No_Cigarattes = unname(quantile(No_Cigarattes,0.25))
+Q1_No_Cigarattes
+
+# IQR CALCULATION
+Max_No_Cigarattes_IQR = Q3_No_Cigarattes+1.5*No_Cigarattes_IQR # Positive Outlier Calculation
+Max_No_Cigarattes_IQR
+Min_No_Cigarattes_IQR = Q1_No_Cigarattes-1.5*No_Cigarattes_IQR # Negative Outlier Calculation
+Min_No_Cigarattes_IQR
+
+# No Of OUTLIERS
+sum(No_Cigarattes > Max_No_Cigarattes_IQR)
+sum(No_Cigarattes < Min_No_Cigarattes_IQR)
+# Print all Outliers
+No_Cigarattes[No_Cigarattes > Max_No_Cigarattes_IQR]
+No_Cigarattes[No_Cigarattes < Min_No_Cigarattes_IQR]
+```
+
+####3.1.6 BP Medication
+
+```{r}
+table(BP_Medication) # Number of patients under BP medication.
+```
+
+####3.1.7 Prevalent Stroke
+
+```{r}
+table(Prevalent_Stroke) # Number of patients with stroke history.
+```
+
+####3.1.8 Prevalent Hypertension
+```{r}
+table(Prevalent_Hypertension)# Number of patients with Hypertensive history.
+```
+
+#
+####3.1.9 Diabetes
+
+```{r}
+table(Diabetes)# Number of patients with Diabetes history.
+```
+
+####3.1.10 Total Choloestrol
+
+```{r}
+range(Total_Choloestrol) # Min & Max of tot choloestral level
+
+#Histogram
+ggplot(CHD,aes(x=Total_Choloestrol))+geom_histogram(color="darkblue",fill='lightblue',bandwidth=1)+
+  geom_vline(aes(xintercept=mean(Total_Choloestrol)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Total_Choloestrol)),color ="red",linetype="dashed",size=1)+
+  labs(title="Patient's choloestrol Histogram Plot",x="Total Choloestrol", y = "Count")
+
+# Box plot
+boxplot(CHD$Total_Choloestrol,horizontal = TRUE,col="red",main = "Patient's choloestrol Distribution", xlab= "Total Choloestrol")
+```
+
+```{r}
+# OUTLIER CALCULATION
+mean(Total_Choloestrol) # AverAge of tot choloestrol
+median(Total_Choloestrol) # Centre value of total choloestrol distribution
+Total_Choloestrol_IQR = IQR(Total_Choloestrol)
+Total_Choloestrol_IQR
+
+#OUTLIERS - Q3
+Q3_Total_Choloestrol = quantile(Total_Choloestrol,0.75)
+Q3_Total_Choloestrol = unname(Q3_Total_Choloestrol)
+Q3_Total_Choloestrol
+
+#OUTLIERs - Q1
+Q1_Total_Choloestrol = unname(quantile(Total_Choloestrol,0.25))
+Q1_Total_Choloestrol
+
+# IQR CALCULATION
+Max_Total_Choloestrol_IQR = Q3_Total_Choloestrol+1.5*Total_Choloestrol_IQR # Positive Outlier Calculation
+Max_Total_Choloestrol_IQR
+Min_Total_Choloestrol_IQR = Q1_Total_Choloestrol-1.5*Total_Choloestrol_IQR # Negative Outlier Calculation
+Min_Total_Choloestrol_IQR
+
+# No Of OUTLIERS
+sum(Total_Choloestrol > Max_Total_Choloestrol_IQR)
+sum(Total_Choloestrol < Min_Total_Choloestrol_IQR)
+# Print all Outliers
+Total_Choloestrol[Total_Choloestrol > Max_Total_Choloestrol_IQR]
+Total_Choloestrol[Total_Choloestrol < Min_Total_Choloestrol_IQR]
+```
+
+
+####3.1.11 Systolic Blood Pressure
+
+```{r}
+range(Systolic_BP) # Min & Max value of Systolic BP.
+
+#Histogram
+ggplot(CHD,aes(x=Systolic_BP))+geom_histogram(color="darkblue",fill='lightblue',
+                                        bandwidth=1)+
+  geom_vline(aes(xintercept=mean(Systolic_BP)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Systolic_BP)),color ="red",linetype="dashed",size=1)+
+  labs(title="Patient's Systolic BP Histogram Plot",x="Total Systolic BP", y = "Count")
+
+# Box plot
+
+boxplot(CHD$Systolic_BP,horizontal = TRUE,col="red",main = "Patient's Systolic BP", xlab= "Systolic BP")
+```
+
+
+
+```{r}
+
+# OUTLIER CALCULATION
+attach(CHD)
+mean(Systolic_BP) # AverAge systolic BP.
+median(Systolic_BP) # Centre value of Systolic BP.
+Systolic_BP_IQR = IQR(Systolic_BP)
+Systolic_BP_IQR
+
+#OUTLIERS - Q3
+Q3_Systolic_BP = quantile(Systolic_BP,0.75)
+Q3_Systolic_BP = unname(Q3_Systolic_BP)
+Q3_Systolic_BP
+
+#OUTLIERs - Q1
+Q1_Systolic_BP = unname(quantile(Systolic_BP,0.25))
+Q1_Systolic_BP
+
+# IQR CALCULATION
+Max_Systolic_BP_IQR = Q3_Systolic_BP+1.5*Systolic_BP_IQR # Positive Outlier Calculation
+Max_Systolic_BP_IQR
+Min_Systolic_BP_IQR = Q1_Systolic_BP-1.5*Systolic_BP_IQR # Negative Outlier Calculation
+Min_Systolic_BP_IQR
+
+# No Of OUTLIERS
+sum(Systolic_BP > Max_Systolic_BP_IQR)
+sum(Systolic_BP < Min_Systolic_BP_IQR)
+# Print all Outliers
+Systolic_BP[Systolic_BP > Max_Systolic_BP_IQR]
+Systolic_BP[Systolic_BP < Min_Systolic_BP_IQR]
+
+```
+####3.1.12 Diastolic Blood Pressure
+```{r}
+range(Diastolic_BP) # Min & Max of diastolic blood pressure
+
+#Histogram
+ggplot(CHD,aes(x=Diastolic_BP))+geom_histogram(color="darkblue",fill='lightblue',bandwidth=1,bin=90)+
+  geom_vline(aes(xintercept=mean(Diastolic_BP)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Diastolic_BP)),color ="red",linetype="dashed",size=1)+
+  labs(title="Patient's Diastolic BP Histogram Plot",x="Diastolic BP", y = "Count")
+
+# Box plot
+
+boxplot(CHD$Diastolic_BP,horizontal = TRUE,col="GREEN",main = "Patient's Diastolic BP Distribution", xlab= "Diastolic BP")
+
+```
+
+```{r}
+# OUTLIER CALCULATION
+mean(Diastolic_BP) # Average Diastolic_BP
+median(Diastolic_BP) # Centre value of Diastolic_BP
+Diastolic_BP_IQR = IQR(Diastolic_BP)
+Diastolic_BP_IQR
+
+#OUTLIERS - Q3
+Q3_Diastolic_BP = quantile(Diastolic_BP,0.75)
+Q3_Diastolic_BP = unname(Q3_Diastolic_BP)
+Q3_Diastolic_BP
+
+#OUTLIERs - Q1
+Q1_Diastolic_BP = unname(quantile(Diastolic_BP,0.25))
+Q1_Diastolic_BP
+
+# IQR CALCULATION
+Max_Diastolic_BP_IQR = Q3_Diastolic_BP+1.5*Diastolic_BP_IQR # Positive Outlier Calculation
+Max_Diastolic_BP_IQR
+Min_Diastolic_BP_IQR = Q1_Diastolic_BP-1.5*Diastolic_BP_IQR # Negative Outlier Calculation
+Min_Diastolic_BP_IQR
+
+# No Of OUTLIERS
+sum(Diastolic_BP > Max_Diastolic_BP_IQR)
+sum(Diastolic_BP < Min_Diastolic_BP_IQR)
+# Print all Outliers
+Diastolic_BP[Diastolic_BP > Max_Diastolic_BP_IQR]
+Diastolic_BP[Diastolic_BP < Min_Diastolic_BP_IQR]
+```
+
+####3.1.13 BMI
+```{r}
+range(BMI) # Min & Max of BMI
+
+#Histogram
+ggplot(CHD,aes(x=BMI))+geom_histogram(color="darkblue",fill='lightblue',bandwidth=1)+
+  geom_vline(aes(xintercept=mean(BMI)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(BMI)),color ="red",linetype="dashed",size=1)+
+  labs(title="Patient's BMI Histogram Plot",x="Body Mass Index", y = "Count")
+
+# Box plot
+
+boxplot(CHD$BMI,horizontal = TRUE,col="purple",main = "Patient's BMI Distribution", xlab= "Body Mass Index")
+```
+
+
+```{r}
+
+# OUTLIER CALCULATION
+mean(BMI) # AverAge BMI
+median(BMI) # Centre value of BMI
+BMI_IQR = IQR(BMI)
+BMI_IQR
+
+#OUTLIERS - Q3
+Q3_BMI = quantile(BMI,0.75)
+Q3_BMI = unname(Q3_BMI)
+Q3_BMI
+
+#OUTLIERs - Q1
+Q1_BMI = unname(quantile(BMI,0.25))
+Q1_BMI
+
+# IQR CALCULATION
+Max_BMI_IQR = Q3_BMI+1.5*BMI_IQR # Positive Outlier Calculation
+Max_BMI_IQR
+Min_BMI_IQR = Q1_BMI-1.5*BMI_IQR # Negative Outlier Calculation
+Min_BMI_IQR
+
+# No Of OUTLIERS
+sum(BMI > Max_BMI_IQR)
+sum(BMI < Min_BMI_IQR)
+# Print all Outliers
+BMI[BMI > Max_BMI_IQR]
+BMI[BMI < Min_BMI_IQR]
+
+```
+
+
+####3.1.14 Heart Rate
+
+```{r}
+range(Heart_Rate) # Min & Max of heart rate.
+
+#Histogram
+ggplot(CHD,aes(x=Heart_Rate))+geom_histogram(color="darkblue",fill='lightblue',bandwidth=1)+
+  geom_vline(aes(xintercept=mean(Heart_Rate)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Heart_Rate)),color ="red",linetype="dashed",size=1)+
+  labs(title="Patient's Heart Rate Histogram Plot",x="Heart Rate", y = "Count")
+
+# Box plot
+
+boxplot(CHD$Heart_Rate,horizontal = TRUE,col="purple",main = "Patient's Heart Rate Distribution", xlab= "Heart Rate")
+```
+
+
+```{r}
+
+# OUTLIER CALCULATION
+mean(Heart_Rate)  # AverAge Heart Rate
+median(Heart_Rate) # Centre value of the Heart Rate distribution.
+Heart_Rate_IQR = IQR(Heart_Rate)
+Heart_Rate_IQR
+
+#OUTLIERS - Q3
+Q3_Heart_Rate = quantile(Heart_Rate,0.75)
+Q3_Heart_Rate = unname(Q3_Heart_Rate)
+Q3_Heart_Rate 
+
+#OUTLIERs - Q1
+Q1_Heart_Rate = unname(quantile(Heart_Rate,0.25))
+Q1_Heart_Rate
+
+# IQR CALCULATION
+Max_Heart_Rate_IQR = Q3_Heart_Rate+1.5*Heart_Rate_IQR # Positive Outlier Calculation
+Max_Heart_Rate_IQR
+Min_Heart_Rate_IQR = Q1_Heart_Rate-1.5*Heart_Rate_IQR # Negative Outlier Calculation
+Min_Heart_Rate_IQR
+
+# No Of OUTLIERS
+sum(Heart_Rate > Max_Heart_Rate_IQR)
+sum(Heart_Rate < Min_Heart_Rate_IQR)
+# Print all Outliers
+Heart_Rate[Heart_Rate > Max_Heart_Rate_IQR]
+Heart_Rate[Heart_Rate < Min_Heart_Rate_IQR]
+Heart_Rate.txt <-Heart_Rate[Heart_Rate > Max_Heart_Rate_IQR]
+
+write.csv(Heart_Rate,"heart rate Outliers.csv") # Writing outliers into CSV.
+```
+
+####3.1.15 Glucose Level
+
+```{r}
+range(Glucose) # Min & Max of Glucose level.
+
+#Histogram
+ggplot(CHD,aes(x=Glucose))+geom_histogram(color="darkblue",fill='lightblue',bin=60,binwidth = 1)+
+  geom_vline(aes(xintercept=mean(Glucose)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Glucose)),color ="red",linetype="dashed",size=1)+
+  labs(title="Patient's Glucose Level Histogram Plot",x="Glucose Level", y = "Count")
+
+
+# Box plot
+
+boxplot(CHD$Glucose,horizontal = TRUE,col="purple",main = "Patient's Glucose Level Distribution", xlab= "Glucose Level")
+```
+
+
+
+```{r}
+
+# OUTLIER CALCULATION
+mean(Glucose) # AverAge Glucose level
+median(Glucose) # Centre value of Glucose distribution.
+Glucose_IQR = IQR(Glucose)
+Glucose_IQR 
+
+#OUTLIERS - Q3
+Q3_Glucose = quantile(Glucose,0.75)
+Q3_Glucose = unname(Q3_Glucose)
+Q3_Glucose 
+
+#OUTLIERs - Q1
+Q1_Glucose = unname(quantile(Glucose,0.25))
+Q1_Glucose
+
+# IQR CALCULATION
+Max_Glucose_IQR = Q3_Glucose+1.5*Glucose_IQR # Positive Outlier Calculation
+Max_Glucose_IQR
+Min_Glucose_IQR = Q1_Glucose-1.5*Glucose_IQR # Negative Outlier Calculation
+Min_Glucose_IQR
+
+# No Of OUTLIERS
+sum(Glucose > Max_Glucose_IQR)
+sum(Glucose < Min_Glucose_IQR)
+# Print all Outliers
+Glucose[Glucose > Max_Glucose_IQR]
+Glucose[Glucose < Min_Glucose_IQR]
+
+```
+
+####3.1.16 CHD Risk Patients
+
+```{r}
+table(CHD_in_10Yrs) # Risk & Safe Patients counts 
+
+```
+
+#--------------------------------------------------------------
+## 3.2 BI-VARIATE  ANALYSIS
+###3.2.1 Demographic Analysis - Gender Vs Age Vs.Education on CHD Risk
+
+
+```{r}
+# Bar Plot - Gender Vs Age Vs. Education on CHD Risk
+ggplot(CHD) +
+ aes(x = Gender, y = Age, fill = Education) +
+ geom_boxplot() +
+ scale_fill_viridis_d(option = "plasma") +
+ labs(x = "Risk of CHD against Gender", y = "Age (Years)", title = "Box Plot - Demographic Analysis", subtitle = "Age Vs. Gender Vs. Education on CHD Risk", fill = "Years of Education") +
+ theme_minimal() +
+ facet_wrap(vars(CHD_in_10Yrs))
+
+# Filtering Risk Female through Demographic Analysis.
+Risk.Female.df<-CHD %>% select(CHD_in_10Yrs,Gender,Education,Age) %>% filter(CHD_in_10Yrs=="Risk" & Gender =="Female")
+head(Risk.Female.df,10)
+
+# Filtering Risk Genders through Demographic Analysis.
+Risk.Gender.df<-CHD %>% select(CHD_in_10Yrs,Gender,Education,Age) %>% filter(CHD_in_10Yrs=="Risk" & Gender =="Gender")
+Risk.Gender.df
+
+# Filtering Safe Gender through Demographic Analysis.
+Safe.Gender.df<-CHD %>% select(CHD_in_10Yrs,Gender,Education,Age) %>% filter(CHD_in_10Yrs=="Safe" & Gender =="Gender")
+Safe.Gender.df
+
+# Filtering Safe Female through Demographic Analysis.
+Safe.Female.df<-CHD %>% select(CHD_in_10Yrs,Gender,Education,Age) %>% filter(CHD_in_10Yrs=="Safe" & Gender =="Gender")
+Safe.Female.df
+
+# Mean summary on Risk Female Age based on Educational history.
+by(Risk.Female.df$Age,INDICES=Risk.Female.df$Education,FUN = mean)
+
+# Mean summary on Risk Gender Age based on Educational history.
+by(Risk.Gender.df$Age,INDICES=Risk.Gender.df$Education,FUN = mean)
+
+# Mean summary on Safe Female Age based on Educational history.
+by(Safe.Female.df$Age,INDICES=Safe.Female.df$Education,FUN = mean)
+
+# Mean summary on Safe Gender Age based on Educational history.
+by(Safe.Gender.df$Age,INDICES=Safe.Gender.df$Education,FUN = mean)
+
+```
+
+
+###3.2.2 Behavioural Analysis - Smoker Vs # Cigs per day on CHD Risk
+
+```{r}
+# Bar Plot - Smoker Vs # Cigs per day on CHD Risk
+
+ggplot(CHD) +
+ aes(x = Smoking_Status, y = No_Cigarattes, fill = CHD_in_10Yrs) +
+ geom_boxplot() +
+ scale_fill_hue() +
+ labs(x = "Smoking Status", y = "# of Ciggaratte Per Day", title = "Box Plot - Behavioural Analysis", subtitle = "Smoker Vs # of Cigs Per day on CHD", caption = "asd", fill = "Risk on CHD") +
+ theme_classic()
+```
+
+
+#### 3.2.2.1 CHD Risk on Non and Smokers.
+```{r}
+# Filtering Non Smokers Risk on CHD
+
+NonSmoke_CHD.df<-(CHD %>% select(Smoking_Status,CHD_in_10Yrs) %>% filter(Smoking_Status=="Non-Smoker"))
+head(NonSmoke_CHD.df,10)
+table(NonSmoke_CHD.df) # Table of Risky non smokers
+
+# Filtering Smokers on CHD
+Smoke_CHD.df<-(CHD %>% select(Smoking_Status,CHD_in_10Yrs) %>% filter(Smoking_Status=="Smoker"))
+table(Smoke_CHD.df)
+
+# Bar plot of Behavioral Analysis of Smokers and Non-Smokers of CHD risk.
+ggplot(CHD) +
+ aes(x = Smoking_Status, fill = Smoking_Status) +
+ geom_bar() +
+ scale_fill_brewer(palette = "Set1") +
+ labs(x = "Patients Smoking Habbit", 
+      y = "Number of Test Patients", 
+      title = "Behavioural Analysis", 
+      subtitle = "Risk of CHD on Smokers Vs. Non-Smokers", 
+      fill = "Behaviour") +
+ theme_minimal() +
+ facet_wrap(vars(CHD_in_10Yrs))
+
+```
+
+
+###3.2.3 Health Analysis - Health Condition on CHD Risk
+```{r}
+# Filtering Patients with clean medical history.
+HealthCHD.df <- CHD %>%select(BP_Medication,Prevalent_Hypertension,Prevalent_Stroke,Diabetes,CHD_in_10Yrs) %>% filter(BP_Medication=="No",Prevalent_Hypertension=="No",Prevalent_Stroke=="No",Diabetes=="No") 
+
+
+table(HealthCHD.df$CHD_in_10Yrs) # Table on patients clean medical history.
+#View (CHD) # View the dataset.
+write.csv(CHD,"Coronary Heart Disease Analysis.csv")
+
+# Bar plot on Safe & Risk Prediction on people with healthy lifestyle.
+ggplot(HealthCHD.df) +
+ aes(x = CHD_in_10Yrs, fill = CHD_in_10Yrs) +
+ geom_bar() +
+ scale_fill_viridis_d(option = "viridis") +
+ labs(x = "Safe & Risk Patients", y = "Number of Patients", title = "Health Analysis", subtitle = "Safe & Risk on CHD among Healthy Patients", caption = "No suspision of helath record") +
+ theme_minimal()
+
+```
+
+###3.2.3.1 Health Analysis - Diastolic & Systolic BP.
+```{r}
+# Risk analysis on Systolic BP
+Risk.Sys.Dia.df <- CHD %>% select(Systolic_BP,Diastolic_BP,CHD_in_10Yrs) 
+range(Risk.Sys.Dia.df$Systolic_BP)
+
+head(Risk.Sys.Dia.df,10)
+
+# Classification of Hypertensive based on Systolic BP and Diastolic BP
+Hyp.Class <- mutate(Risk.Sys.Dia.df,Hyp.Class=ifelse(Systolic_BP<120 & Diastolic_BP<80,"Normal",ifelse(Systolic_BP>=120 & Systolic_BP<=139& Diastolic_BP>=80 & Diastolic_BP<=90,"PreHypertension",ifelse(Systolic_BP>=140 & Systolic_BP<160 & Diastolic_BP>=90 & Diastolic_BP <=99,"Hyp StAge-1",ifelse(Systolic_BP>=160 & Diastolic_BP >= 100,"Hyp StAge -2","NO CLASS")))))
+head(Hyp.Class,10)
+
+# Bar plot -  Hypertension Classification on CHD Risk
+ggplot(Hyp.Class) +
+ aes(x = Hyp.Class, fill = Hyp.Class) +
+ geom_bar() +
+ scale_fill_viridis_d(option = "viridis") +
+ labs(x = "Hypertension Classes", y = "Number of Patients", title = "Health Analysis", subtitle = "Hypertension Class Vs CHD Risk", caption = "Classified based WHO recommendation", fill = "Hypertension Classes ") +
+ theme_minimal() +
+ facet_wrap(vars(CHD_in_10Yrs))
+```
+
+```{r}
+write.csv(CHD,"Coronary Heart Disease- Modified.csv")
+
+```
+
+

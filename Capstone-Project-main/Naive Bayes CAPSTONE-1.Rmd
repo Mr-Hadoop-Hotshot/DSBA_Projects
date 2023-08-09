@@ -1,0 +1,126 @@
+---
+title: "Naive Bayes - Capstone"
+author: "Karthik"
+date: "6/21/2020"
+output: html_document
+---
+
+#1.0  Library
+
+```{r}
+library("MASS")  # STEP AIC function
+library("caret") # Confustion Matrix
+library("DMwR")  # SMOTE
+library("car")   # VIF function 
+library("InformationValue") # Optimal cutoff
+library("e1071") # Naive Bayes
+library("caTools") # Data sample.split
+library("caret")
+```
+
+
+#2.0 Data Split
+
+```{r}
+
+NB <- CHD
+
+
+NB$Gender <- as.factor(CHD$Gender)
+NB$Education <- as.factor(CHD$Education)
+NB$Smoking_Status <- as.factor(CHD$Smoking_Status)
+NB$BP_Medication <- as.factor(CHD$BP_Medication)
+NB$Prevalent_Stroke <-as.factor(CHD$Prevalent_Stroke)
+NB$Prevalent_Hypertension <- as.factor(CHD$Prevalent_Hypertension)
+NB$Diabetes <- as.factor(CHD$Diabetes)
+NB$CHD_in_10Yrs <-as.factor(CHD$CHD_in_10Yrs)
+
+split_data.NB <- NB
+set.seed(369)
+split=sample.split(split_data.NB $CHD_in_10Yrs,SplitRatio = 0.7)
+train.NB <- subset(split_data.NB ,split==TRUE)
+test.NB <- subset(split_data.NB ,split==FALSE)
+
+str(train.NB)
+levels(NB$CHD_in_10Yrs)
+names(NB)
+```
+
+#3.0 Naive bayes Build and Train
+```{r}
+x = train.NB[,c(1,3,4,7,6,8,9)]
+y = train.NB$CHD_in_10Yrs # Predicted variable
+
+
+names(train.NB)
+# naive Bayes Model
+model = train(x,y,'nb',trControl=trainControl(method='cv',number=11))
+summary(model)
+
+
+# Creating a seperate dataframe for prediction.
+nb.results.df <- data.frame(real=train.NB$CHD_in_10Yrs)
+
+nb.results.df$nb.prob <- predict(model,train.NB,type='prob')[,2] 
+nb.results.df$nb.class <- ifelse(nb.results.df$nb.prob >=0.6714663,"1","0")
+
+nb.results.df$nb.class = as.factor(nb.results.df$nb.class)
+
+# Optimal Cutoff
+InformationValue::optimalCutoff(ifelse(nb.results.df$real=="1",1,0),nb.results.df$nb.prob)
+
+
+caret::confusionMatrix(nb.results.df$real,nb.results.df$nb.class)
+InformationValue::Concordance(ifelse(nb.results.df$real=='1','1','0'),nb.results.df$nb.prob)
+
+plot(varImp(model))
+```
+
+#4.0 NB on Test Dataset
+
+```{r}
+#Creating a new dataset with the results
+nb.results.df.test <- data.frame(real=test.NB$CHD_in_10Yrs)
+
+nb.results.df.test$nb.prob.test <-predict(model,test.NB,type='prob')[,2]
+#View(nb.results.df.test)
+```
+
+
+reating class on the predicted model.
+
+```{r}
+nb.results.df.test$nb.class.test <- as.factor(ifelse(nb.results.df.test$nb.prob.test >=0.671,'1','0'))
+
+```
+
+# 5.0 Confusion Matrix on Test
+```{r}
+caret::confusionMatrix(nb.results.df.test$real,nb.results.df.test$nb.class.test)
+
+InformationValue:: Concordance(ifelse(nb.results.df.test$real=='1','1','0'),nb.results.df.test$nb.prob.test)
+
+```
+
+#6.0 ROC
+
+```{r}
+pred.nb <- prediction(nb.results.df.test$nb.prob.test,test.NB$CHD_in_10Yrs)
+perf.nb <- performance(pred.nb,"tpr","fpr")
+plot(perf.nb,col="blue",main="ROC Plot NB - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+#7.0 AUC
+```{r}
+test.auc.nb <- performance(pred.nb,"auc")
+test.auc.nb<- as.numeric(test.auc.nb@y.values)
+round(test.auc.nb*100,2)
+```
+
+#8.0 KS Statistics
+```{r}
+ks_table.nb <-max(attr(perf.nb, "y.values")[[1]] - (attr(perf.nb, "x.values")[[1]]))
+
+ks_table.nb
+```
+
