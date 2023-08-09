@@ -1,0 +1,171 @@
+---
+title: "Mushroom Case Study - EDA"
+author: "Karthik"
+date: "10/13/2020"
+output: html_document
+---
+
+
+#1.0 Working Directory
+```{r}
+setwd("F:/Data Science/ebuilder/")
+getwd()
+```
+
+##1.1 Importing Dataset
+```{r}
+dataset <- read.csv("mushrooms.csv")
+#mush <- read.csv("mushrooms.csv")
+```
+
+##1.2 Loading Libraries
+```{r}
+library("naniar") # NA plots
+library("mice") # NA visualisations
+library("ggplot2") # Visualising plots
+library("dplyr") # Variable Transofrmation
+library("klaR") # K Mode clustering techniques
+library("DMwR") # KNN imputations for NA
+library("cba")
+library("caTools")
+```
+#EDA
+##2.0 Dimentions Analysis
+```{r}
+dim(dataset)
+```
+
+```{r}
+colnames(dataset)
+```
+
+## 2.1 Header Changed Dataset
+```{r}
+
+names(dataset) <- c("edibility","cap.shape","cap.surface","cap.color","bruises","odor","gill.attachment","gill.spacing","gill.size","gill.color","stalk.shape","stalk.root","stalk.surface.above.ring","stalk.surface.below.ring","stalk.color.above.ring","stalk.color.below.ring","veil.type","veil.color","ring.number","ring.type","spore.print.color","population","habitat")
+
+```
+
+## 2.2 Chnge Attribute Classes
+```{r}
+str(dataset)
+
+dataset[,] <-lapply(dataset[,],factor) # Converting all variables classed into Factor.
+```
+
+## 2.3 Converting the Missing value "?" into NA
+```{r}
+summary(dataset) # 5 Number Summary.
+
+levels(dataset$stalk.root)<- c(NA,"b","c","e","r") # "?" level into NA.
+levels(dataset$stalk.root)
+```
+
+
+#...
+##3.0 Missing Value Visualisation & Treatment
+
+```{r}
+anyNA(dataset) #  Presence of overall missing value
+sum(is.na(dataset)) # Sum of overall NAs 
+colSums(is.na(dataset)) # Column wise presence of NAs.
+```
+
+## 3.1 NA Visualisations
+```{r}
+library("visdat")
+vis_dat(dataset) # Entire dataset in one View.See the class information and NA values in the dataset.
+
+```
+
+```{r}
+vis_miss(dataset) # NA Visualisations
+```
+Well only 1.3% of the total data have been missing. Also, missing entry can be found only on the "stalk.root" attribute.
+
+##3.2 Relationship of Missing Data
+```{r}
+gg_miss_var(dataset,facet=edibility) # NA visualisation based on edibility
+```
+
+#------------------------------------
+##4.0 Data Transformation for Analysis
+
+```{r}
+# Analysis on Edibility only on observations contains NA entries.
+dataset %>% filter( edibility=="p") %>% count(is.na(stalk.root))
+edible <-dataset %>% filter(is.na(stalk.root) & edibility=="e") # Edible mushrooms with NA entries
+dim(edible)
+
+
+poison <- dataset %>% filter(is.na(stalk.root),edibility=="p") # poisonous mushrooms with NA entries
+dim(poison)
+(count(poison)/nrow(dataset))*100 # Poisonous mushroom percentage
+(count(edible)/nrow(dataset))*100 # Edible mushroom percentage
+```
+Among the overall missing values 8.7% of missed stalk.root information are of Poisonous mushrooms while  21.7% of missing stalk.root information are of edible mushrooms.
+
+##4.1  Creating Multiple datasets (with Treated & Untreated NA)
+Misclassification of edibility of mushrooms could cause human fatality.Hence,I have decided to use the following dataset.
+1. Complete Observations - Data 
+2. NA Treated Observations -DataT
+3. NA Treated on Edible Mushrooms Observations only. - DataE
+
+```{r}
+Data <- dataset[complete.cases(dataset),] # NA removed dataset
+any_na(Data)
+dim(Data)
+
+DataT <- knnImputation(dataset, k = 5) # NA Treated dataset
+any_na(DataT)
+dim(DataT)
+
+DataE <-knnImputation((dataset %>% filter(!(edibility=="p" & is.na(stalk.root)))), k = 5) # Edible observations NA treated dataset.
+dim(DataE)
+any_na(DataE)
+
+
+```
+#--------------------------------
+
+
+
+
+
+##5.0 Train & Test Data Split
+###5.1 Data Split - Complete Cases Only
+```{r}
+#Data
+set.seed(369)
+split=sample.split(Data$edibility,SplitRatio = 0.7)
+train.D <- subset(Data,split==TRUE)
+test.D <- subset(Data ,split==FALSE)
+
+dim(train.D)
+dim(test.D)
+```
+###5.2 DataT Split - NA Treated 
+```{r}
+#DataT
+set.seed(369)
+split=sample.split(DataT$edibility,SplitRatio = 0.7)
+train.T <- subset(DataT,split==TRUE) # 70% Train Split
+test.T <- subset(DataT,split==FALSE) # 30% Test Split
+
+dim(train.T)
+dim(test.T)
+```
+
+###5.3 DataE Split - NA Treated Edible only
+```{r}
+#DataE
+set.seed(369)
+split=sample.split(DataE$edibility,SplitRatio = 0.7)
+train.E <- subset(DataE,split==TRUE)
+test.E <- subset(DataE,split==FALSE)
+
+dim(train.E)
+dim(test.E)
+```
+
+

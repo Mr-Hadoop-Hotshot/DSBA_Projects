@@ -1,0 +1,177 @@
+---
+title: "Mushroom Case Study - Model"
+author: "Karthik"
+date: "10/13/2020"
+output: html_document
+---
+
+
+#1.0 Libraries
+
+```{r}
+library("e1071") # Naive Bayes Algorithm
+library("caret") # Confusion Matrix
+library("InformationValue")# Optimal Cutoff Value
+library("ROCR")# ROC curve function
+```
+
+#2.0 Naive Bayes Prediction
+## 2.1 NB on Train Dataset
+```{r}
+
+# NB Model building and training on TRAIN dataset.
+#-------------------------------------------------
+
+train.D.NB <- train.D    # Creating new dataset to keep the original dataset untouched.
+
+x = train.D.NB[,c(1:22)] # Independent Variable
+y = train.D.NB$edibility # Predicted Variable
+
+
+# Naive Bayes Model
+#------------------
+model.nb = train(x,y,'nb',trControl=trainControl(method='cv',number=11))
+
+
+# Prediction using NB model.
+#--------------------------
+
+# Creating a Separate Dataframe for prediction.
+nb.results.df <- data.frame(real=train.D.NB$edibility)  
+
+# Making prediction & Tabulating the o/p
+nb.results.df$nb.prob <- predict(model.nb,train.D.NB,type='prob')[,2] 
+
+# Categorizing the prediction based threshold value.
+nb.results.df$nb.class <- ifelse(nb.results.df$nb.prob >=0.6,"p","e") 
+
+# Visualize the prediction
+plot(predict(model.nb,train.D.NB,type='prob')[,2]) 
+
+# Convert the model prediction in factor.
+nb.results.df$nb.class = as.factor(nb.results.df$nb.class) 
+
+# Calculating the optimal cutoff value.
+InformationValue::optimalCutoff(ifelse(nb.results.df$real=="p","1","0"),nb.results.df$nb.prob) 
+        # NOTE :  Any value between 0.04 to 0.6 gives very good prediction.
+
+
+# Model Prediction Power Evaluation - train
+#------------------------------------------
+
+# Confusion Matrix and other model performance tool.
+caret::confusionMatrix(nb.results.df$real,nb.results.df$nb.class) 
+
+InformationValue::Concordance(ifelse(nb.results.df$real=='1','p','e'),nb.results.df$nb.prob)
+
+# Variable importance plot to identify mostly contributed variable.
+plot(varImp(model.nb)) 
+
+```
+
+
+
+##2.2  NB on Test Dataset
+```{r}
+#test.D # Test dataset (30% of the complete.cases dataset)
+
+# Creating a dataframe for test dataset prediction
+nb.test.df <- data.frame(real=test.D$edibility)
+
+# predicting on test dataset.
+nb.test.df$nb.prob <- predict(model.nb,test.D,type='prob')[,2]
+
+# Applying the same threshold value used in train dataset.
+nb.test.df$nb.class <- ifelse(nb.test.df$nb.prob >=0.6,"p","e") 
+
+# Visualizing the test dataset prediction.
+plot(predict(model.nb,test.D,type='prob')[,2]) 
+
+# Converting the prediction in to a factor.
+nb.test.df$nb.class = as.factor(nb.test.df$nb.class) 
+
+# # Model Prediction Power Evaluation - test
+#-------------------------------------------
+caret::confusionMatrix(nb.test.df$real,nb.test.df$nb.class)
+
+```
+#-----------------------------------
+#3.0 Model Performance Test Dataset
+## 3.1ROC - Test Dataset
+
+```{r}
+
+pred.nb <- prediction(nb.test.df$nb.prob,nb.test.df$real)
+perf.nb <- performance(pred.nb,"tpr","fpr")
+plot(perf.nb,col="blue",main="ROC Plot NB - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+##3.2 AUC - Test Dataset
+```{r}
+test.auc.nb <- performance(pred.nb,"auc")
+test.auc.nb<- as.numeric(test.auc.nb@y.values)
+round(test.auc.nb*100,2)
+```
+
+##3.3 KS Statistics - Test Dataset
+```{r}
+ks_table.nb <-max(attr(perf.nb, "y.values")[[1]] - (attr(perf.nb, "x.values")[[1]]))
+
+round(ks_table.nb*100,2)
+```
+#-----------------------------------
+#4.0 Missing Value Dataset against the Model
+
+```{r}
+NA.D <- dataset %>% filter(is.na(stalk.root))
+
+
+```
+
+##4.1 NB on New Dataset
+
+```{r}
+# Creating a dataframe for test dataset prediction
+nb.NA.df <- data.frame(real=NA.D$edibility)
+
+# predicting on test dataset.
+nb.NA.df$nb.prob <- predict(model.nb,NA.D,type='prob')[,2]
+
+# Applying the same threshold value used in train dataset.
+nb.NA.df$nb.class <- ifelse(nb.NA.df$nb.prob >=0.04,"p","e") 
+
+# Visualizing the test dataset prediction.
+plot(predict(model.nb,NA.D,type='prob')[,2]) 
+
+# Converting the prediction in to a factor.
+nb.NA.df$nb.class = as.factor(nb.NA.df$nb.class) 
+
+# # Model Prediction Power Evaluation - test
+#-------------------------------------------
+caret::confusionMatrix(nb.NA.df$real,nb.NA.df$nb.class)
+```
+
+##4.2 Model Performance New Dataset
+###4.2.1 ROC - New dataset
+
+```{r}
+
+pred.nb <- prediction(nb.NA.df$nb.prob,nb.NA.df$real)
+perf.nb <- performance(pred.nb,"tpr","fpr")
+plot(perf.nb,col="blue",main="ROC Plot NB - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+###4.2.2 AUC - New dataset
+```{r}
+test.auc.nb <- performance(pred.nb,"auc")
+test.auc.nb<- as.numeric(test.auc.nb@y.values)
+round(test.auc.nb*100,2)
+```
+
+###4.2.3 KS Statistics - New dataset
+```{r}
+ks_table.nb <-max(attr(perf.nb, "y.values")[[1]] - (attr(perf.nb, "x.values")[[1]]))
+
+round(ks_table.nb*100,2)
+```
+
