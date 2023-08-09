@@ -1,0 +1,37 @@
+---
+title: "NB test"
+author: "Karthik"
+date: "3/25/2020"
+output: html_document
+---
+
+
+```{r}
+results.df <- data.frame(real=train$Transport.cars)
+# Naive Bayes Model Building
+train.nb=train$Transport.cars
+model_cars.t1 =caret::train(train[,-c(1,5,6,7,9)],as.factor(train[,9]),'nb',trcontrol=trainControl(method='cv',number=10))
+?trcontrol
+colnames(train)
+```
+
+Let's predict using Naive Bayes Model
+```{r}
+results.df$nb.prob.t1 <-predict(model_cars.t1,train80k,type='prob')[,2]
+View(results.df)
+```
+Creating class on the predicted model.
+
+```{r}
+results.df$nb.class.t <- as.factor(ifelse(results.df$nb.prob.t >=0.5,'1','0'))
+View(results.df)
+```
+
+Let's run the Confussion Matrix to check the accuracy of the model.
+
+```{r}
+caret::confusionMatrix(results.df$real,results.df$nb.class.t)
+InformationValue:: Concordance(ifelse(results.df$real=='1','1','0'),results.df$nb.class.t)
+
+```
+

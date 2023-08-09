@@ -1,0 +1,412 @@
+---
+title: "Predictive Modelling Cars"
+author: "Karthik"
+date: "3/20/2020"
+output: html_document
+---
+
+Setting Up the Working Directory
+```{r}
+
+setwd("F:/Data Science/Predictive Modelling/PROJECT CARS/PREDICTIVE MODELLING CARS/")
+getwd()
+```
+
+Importing the Dataset
+```{r}
+Cars <-read.csv("Cars-dataset.csv")
+
+```
+
+Installing all the necessary library packages
+
+```{r}
+library(readr)        
+library(readxl)    
+library (mice)    # Missing Value Identificaiton
+library(corrplot) # Correlation Analysis
+library (rio)     # Calling Library to do Varriance Inflation Factor Analysis
+library (dummies) # Dummy variable transformation
+library(ggplot2)  # For visualisation
+library (caret)   # LM model training.
+library (dplyr)   # Data Manipulation.
+library(BSDA)     # Shapiro-Wilk Normality Test
+library(Rcmdr)    # Levene Varriance Test
+library (caret)   # Confussion Matirx
+library(MASS)     # StepAIC 
+library(e1071)    # Naive Bayes
+library(class)     # KNN3
+library (DMwR)
+library(rpivotTable)
+library(esquisse)
+library(gbm)            # Basic implementation Using Adaboost.
+library(DMwR)    # SMOTE
+library(xgboost)
+
+library(ipred)
+library(rpart)
+
+#install.packages("gbm")
+require(Matrix)
+require(data.table)
+library(InformationValue)
+library(rpivotTable)
+library (esquisse)
+
+#if (!require('vcd')) install.packages('vcd')
+```
+
+
+
+```{r}
+dim(Cars)
+```
+The Cars dataset contain 418 rows of observatins with 9 different attributes.
+
+We need check and clean the data for analysis.
+ 
+```{r}
+str(Cars)
+summary(Cars)
+summary(a)
+```
+Based on the 5 line summary output produced by the "summary" R function, we can see that employee MBA attribute does contain some "Missing Values". 
+This also can confirmed by running the dedicated missing value identificaiton code as shown in the code chunk below.
+Let's generate a graphical representation of the "Missing Values" in the given dataset.
+
+```{r}
+anyNA(Cars)     # Checks for the Missing Values 
+sum(is.na(Cars))# Counts the number of Missing Values
+# Entry of missing values have been confirmed and there are 18 entries can be spotted.
+colSums(is.na(Cars)) # Tabulating the missing value entry
+md.pattern(Cars) # Graphical Representation of Missing Values
+# Evidently only Family members attribute contains missing values.
+```
+Presence of Missing values are confirmed by both graphical and non graphical methods and there is only ONE NA entry to be found.
+
+Let's commence the Missing Value Treatment.
+
+```{r}
+Cars_New = Cars    # Saving the dataset under the Name of "Cars_New"
+init.impute = mice(Cars_New, m = 5, 
+                   method = "pmm", seed = 123)   # Using an algorithm for the R to study the pattern and fill the NA with a suitable value.
+Cars_New = complete(init.impute, 2)
+
+md.pattern(Cars_New)  # Graphical confirmation of the removal of NA.
+sum(is.na(Cars_New))  # Output to see the number of NA entories in the treated dataset.
+dim(Cars_New)         # Dimention of the treated dataset.
+View(Cars_New)        # Vieweing the dataset.
+range(Cars_New$MBA)   # Range of values of MBA attribute.
+
+```
+
+I used "mice" R library function algorithm to study the overall pattern of the dataset. Based on the pattern of the data distribution R had filled the missing value as "0".
+
+The graphical and sum calculation shown above on the treated new dataset confirms the the elimination of NAs.
+
+By studying the classes of all 9 attributes it can be said that "Engineer", "MBA" and "License" attributes needs to be converted into a factor.
+
+
+```{r}
+str(Cars_New)
+Cars_New$Engineer = as.factor(Cars_New$Engineer)
+Cars_New$MBA = as.factor(Cars_New$MBA)
+Cars_New$license = as.factor(Cars_New$license)
+summary(Cars_New)
+plot(density(Cars_New$Salary))
+plot(density(Cars_New$Distance))
+range(Cars_New$Work.Exp)
+```
+
+UNIVARIATE ANALYSIS:
+-------------------
+
+AGE:
+As you can see the 5 number summary of the treated and prepared dataset that "Age" variable have a mean of 27.33 and median of 27 while the minimum value being 18 and maximum being 43.By theory mean is greater than the median makes the Right Skewed distribution. However the difference beween mean and median is not very noticeable. In the histobram plot shown below it can be said "Age" variable observations are normaly distributed and there could be some outliers at the upper value of the distribution. Let's analyse the out liers by doing an outlier examinations.
+
+```{r}
+hist(Cars_New$Age,col="Green",xlim=c(18,43),
+     main="Employee Age Distribution",xlab="Age",breaks = 10)
+boxplot(Cars_New$Age,
+        horizontal = TRUE,col="blue",main = "Employee Age Distribution", xlab= "Age in Years")
+```
+
+As observed from the "Age" histogram, most number of outliers were obeserved at the upper side of the age spectrum.This is confirmed by the boxpolot diagram. The calculated 26 outliers are listed out below:
+38 38 40 36 40 37 39 40 38 36 39 38 40 39 38 42 40 37 43 40 38 37 37 39 36 36
+
+In addition to that there were two repeated outliers were observed at lower end of the distribution spectrum.i.e: 18,18.
+
+
+```{r}
+attach(Cars_New)
+# OUTLIER CALCULATION
+mean(Age)
+median(Age)
+Age_IQR = IQR(Age)
+Age_IQR
+
+#OUTLIERS - Q3
+Q3_Age = quantile(Age,0.75)
+Q3_Age = unname(Q3_Age)
+Q3_Age
+
+#OUTLIERs - Q1
+Q1_Age = unname(quantile(Age,0.25))
+Q1_Age
+
+# IQR CALCULATION
+Max_Age_IQR = Q3_Age+1.5*Age_IQR # Positive Outlier Calculation
+Max_Age_IQR
+Min_Age_IQR = Q1_Age-1.5*Age_IQR # Negative Outlier Calculation
+Min_Age_IQR
+
+# No Of OUTLIERS
+sum(Age > Max_Age_IQR)
+sum(Age < Min_Age_IQR)
+# Print all Outliers
+Age[Age > Max_Age_IQR]
+Age[Age < Min_Age_IQR]
+
+```
+
+
+
+WORK EXPERICENCE:
+The "Work.Exp" attribute have a mean of 5.873 and the median of 5 with a minimum of "No Experience" at all and maximum of 24 years. By theory and the grpahical representatio through an experience also indicates that work experience takes a Rightly Skewed distribution. Equal and tall bars were observed at between the value of 0 to 5. Also, I suspect there could be outlier at the right side of the spectrum.
+
+```{r}
+attach(Cars_New)
+
+hist(Work.Exp,col="Red",xlim=c(0,25),
+     main="Employee Experience Distribution",xlab="Experience in Years" ,breaks = 10)
+boxplot(Work.Exp,
+        horizontal = TRUE,col="Green",main = "Employee Experience Distribution", xlab= "Experience in Years")
+plot(density(Work.Exp))
+```
+As suspected it can be seen from the outlier calculation that, there are no minimum outliers in the dataset. In contrast there 29 datapoint were identified as outliers located beyond the Max_IQR value for employee gained work experience attribute. The each observed outliers are listed below.
+19 20 22 16 20 18 21 20 20 16 17 21 18 20 21 19 22 22 19 24 20 19 19 19 21 16 16 18 16.
+
+```{r}
+# OUTLIER CALCULATION
+mean(Work.Exp)
+median(Work.Exp)
+Work.Exp_IQR = IQR(Work.Exp)
+Work.Exp_IQR
+
+#OUTLIERS - Q3
+Q3_Work.Exp = quantile(Work.Exp,0.75)
+Q3_Work.Exp = unname(Q3_Work.Exp)
+Q3_Work.Exp
+
+#OUTLIERs - Q1
+Q1_Work.Exp = unname(quantile(Work.Exp,0.25))
+Q1_Work.Exp
+
+# IQR CALCULATION
+Max_Work.Exp_IQR = Q3_Work.Exp+1.5*Work.Exp_IQR # Positive Outlier Calculation
+Max_Work.Exp_IQR
+Min_Work.Exp_IQR = Q1_Work.Exp-1.5*Work.Exp_IQR # Negative Outlier Calculation
+Min_Work.Exp_IQR
+
+# No Of OUTLIERS
+sum(Work.Exp > Max_Work.Exp_IQR)
+sum(Work.Exp < Min_Work.Exp_IQR)
+# Print all Outliers
+Work.Exp[Work.Exp > Max_Work.Exp_IQR]
+Work.Exp[Work.Exp < Min_Work.Exp_IQR]
+```
+
+
+
+SALARY:
+The mean slalry of the dataset is approximately 15.418k and median of 13k. The distribution contains employees salary in the range of 6.5k to 57k.
+The below histogram graph indicates that distribution is negatively skewed to the left. Therefore, without hesitation let us proceed to the outlier testing.
+
+```{r}
+hist(Cars_New$Salary,col="Blue",xlim=c(5,58),
+     main="Employee Salary Distribution",xlab="Salary in $1000s",breaks=10)
+boxplot(Salary,horizontal = TRUE,col="Green",main = "Employee Salary Distribution", xlab= "Salary in $1000s")
+plot(Salary)
+```
+
+52 outlier points were identified at the right side of the "Salary" variable distribution spectrum.
+The list of outliers are:
+
+23.8 36.9 28.8 37.0 23.8 23.0 48.0 42.0 51.0 45.0 34.0 45.0 42.9 41.0 40.9 30.9 41.9 43.0 33.0
+36.0 33.0 38.0 46.0 45.0 48.0 35.0 51.0 51.0 55.0 45.0 42.0 52.0 38.0 57.0 44.0 45.0 47.0 50.0
+36.6 25.9 34.8 28.8 28.7 28.7 34.9 23.8 29.9 34.9 24.9 23.9 28.8 23.8.
+
+```{r}
+# OUTLIER CALCULATION
+mean(Salary)
+median(Salary)
+Salary_IQR = IQR(Salary)
+Salary_IQR
+
+#OUTLIERS - Q3
+Q3_Salary = quantile(Salary,0.75)
+Q3_Salary = unname(Q3_Salary)
+Q3_Salary
+
+#OUTLIERs - Q1
+Q1_Salary = unname(quantile(Salary,0.25))
+Q1_Salary
+
+# IQR CALCULATION
+Max_Salary_IQR = Q3_Salary+1.5*Salary_IQR # Positive Outlier Calculation
+Max_Salary_IQR
+Min_Salary_IQR = Q1_Salary-1.5*Salary_IQR # Negative Outlier Calculation
+Min_Salary_IQR
+
+# No Of OUTLIERS
+sum(Salary > Max_Salary_IQR)
+sum(Salary < Min_Salary_IQR)
+# Print all Outliers
+Salary[Salary > Max_Salary_IQR]
+Salary[Salary < Min_Salary_IQR]
+```
+
+
+DISTANCE:
+The average distance travelled by each employee is about 11.9 km and the median distance is about 10.90km. The closest ditance of the employee from the workplace is about 3.2km and furtherest distance is about 23.40km. Both the theory and the histogram plot confirms the positively skewed nature in the emplyee traveld distance related information.
+
+```{r}
+hist(Distance,col="Purple",xlim=c(3,24),
+     main="Distance Traveled Distribution",xlab="Distance in km",breaks=10)
+boxplot(Distance,horizontal = TRUE,col="Grey",main = "Distance Traveled Distribution", xlab= "Distance in km")
+```
+
+Let us begin the outlier analysis on the "Distance" attribute.
+The maximum number of outliers are observed in the right side of the spectrum which is 6 in number while none in the negative spectrum of the distribution.
+
+The observed outlier values are listed below:
+21.3 21.4 21.5 21.5 22.8 23.4
+
+```{r}
+# OUTLIER CALCULATION
+mean(Distance)
+median(Distance)
+Distance_IQR = IQR(Distance)
+Distance_IQR
+
+#OUTLIERS - Q3
+Q3_Distance = quantile(Distance,0.75)
+Q3_Distance = unname(Q3_Distance)
+Q3_Distance
+
+#OUTLIERs - Q1
+Q1_Distance = unname(quantile(Distance,0.25))
+Q1_Distance
+
+# IQR CALCULATION
+Max_Distance_IQR = Q3_Distance+1.5*Distance_IQR # Positive Outlier Calculation
+Max_Distance_IQR
+Min_Distance_IQR = Q1_Distance-1.5*Distance_IQR # Negative Outlier Calculation
+Min_Distance_IQR
+
+# No Of OUTLIERS
+sum(Distance > Max_Distance_IQR)
+sum(Distance < Min_Distance_IQR)
+# Print all Outliers
+Distance[Distance > Max_Distance_IQR]
+Distance[Distance < Min_Distance_IQR]
+```
+
+
+GENDER:
+Our dataset is been influenced by majority of Male employees which about 71% of the total dataset.
+
+
+```{r}
+Gender_Table=table(Gender)
+Gender_Table
+pie(Gender_Table,col=rainbow(10))
+```
+
+EDUCATION:
+Total number of technically savy people in the dataset is 313. That is around 75% of the total dataset.
+
+
+```{r}
+Engineer_Table=table(Engineer)
+Engineer_Table
+pie(Engineer_Table,col=rainbow(10))
+
+MBA_Table=table(MBA)
+MBA_Table
+pie(MBA_Table,col=rainbow(5))
+```
+
+Number of employees from the Management division with a MBA qualification is 109. That is approximately an one quarter of the observations of the dataset. 
+
+LICENSE:
+
+It was interesting to note that only 20% people carry license. Majority does not carry any driver's license. However, this attribute will influence from people choose cars as their mode of transport.
+
+
+```{r}
+License_Table=table(license)
+License_Table
+pie(License_Table,col=rainbow(10))
+
+```
+
+
+TRANSPORT:
+Out of 418 observations 35 people own a car and 83 of them own a 2wheeler and the majority of people take the public transport.
+
+```{r}
+Transport_Table=table(Transport)
+Transport_Table
+pie(Transport_Table,col=rainbow(10))
+```
+
+MULTI-VARIATE ANALYSIS
+-----------------------
+
+
+
+```{r}
+
+attach(Cars_New_Transform)
+boxplot(Age,Salary,Distance,Work.Exp,
+        horizontal = TRUE,
+col=c("Red","Blue","purple","Dark Green"),
+main = "Univariate Comparision of Attributes",xlab= "Rating", ylab="Attributes",
+names=c("Age","Salary","Distance","Work.Exp"))
+
+```
+
+ AGE Vs GENDER
+ -------------
+ Let's investigate the type of people who are involved in the dataset.
+ 
+```{r}
+boxplot(Age~Gender,data=Cars_New_Transform,horizontal=TRUE,col=c('blue','red'),main="Box Plots by Gender")
+attach(Cars_New_Transform)
+table(Transport.cars,Gender)
+rpivotTable(Cars_New_Transform)
+mean(Cars_New_Transform[Gender == "Male", "Age"], 
+     na.rm = TRUE)
+mean(Cars_New_Transform[Gender == "Female", "Age"], 
+     na.rm = TRUE)
+```
+ 
+ 
+ 
+ 
+```{r}
+Class.df<-Cars_New_Transform
+attach(Class.df)
+Distance_Class = mutate(Class.df,Distance_Class  = 
+ifelse(Class.df$Distance > 1 & Class.df$Distance <6,"CLOSE DISTANCE",ifelse(Class.df$Distance>5 & Class.df$Distance <10,"MEDIUM DISTANCE",
+ifelse(Class.df$Distance>10 & Class.df$Distance<15,
+"FAR DISTANCE","VERY FAR DISTANCE" ))))
+Distance_Class
+cbind(Class.df,Distance_Class)
+View(Class.df)
+rpivotTable()
+range(Distance)
+```
+ 
+ 
