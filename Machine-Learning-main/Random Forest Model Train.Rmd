@@ -1,0 +1,151 @@
+---
+title: "RandomForest train"
+author: "Karthik"
+date: "2/16/2020"
+output: html_document
+---
+
+Let's create a CONFUSION MATRIX:
+
+ In the rest of this document, we will sequentially go through a bunch of model performance measures. 
+The main purpose to find out how well this particular model performed:
+The first step of this process is to start with the confusion matrix on the Actual Vs Predicted Value on Personal Loan from the pruned decision trees.
+The confusion matrix indicates a measure of how well a prediction have worked.
+
+
+The code below also calculates the error rate of the off diagonal entries of the confusion matrix.
+
+
+```{r}
+Table_Customer_Train=table(Customer_Train$Personal.Loan, Customer_Train$Predict.class)
+Table_Customer_Train
+View(Customer_Train)
+print((Table_Customer_Train[1,2]+Table_Customer_Train[2,1])/nrow(Customer_Train))
+```
+The Confusion matrix illustrates the mis-classification through the off diagonal entries.
+The error rate of the confusion matrix to be 1.2%.
+
+
+THE RANK ORDERING TABLE
+
+Now we chop all the data into various buckets.But based on the decision tree output there are limited number of possibilities of choping can be done with the end node. First let's find all the percentile and analyse wheather data could be choped up into different busket.
+
+Therefore, calculate the decile thresholds and use those thresholds to compute various columns in a rank order table
+
+```{r}
+probs=seq(0,1,length=11) # Probabilities sequence starts from 0 to 1, with the length of 11.
+print(probs)
+
+qs_cart=quantile(Customer_Train$Prob_1, probs)# Quantile usually buckets using 10 different 
+print(qs_cart) # prob of each 10% seems same. So, when we basket there going to be less than 10 buckets. Value in the lecture is diferent at 70%,80%,90% and 100%. Therefore, 5 baskets cane be seen.
+
+```
+
+So, the output above illustrates the number chops that can be done in the Customer_Train dataset. The bucket combination is isted below:
+
+Bucket 1: 0% to 80%
+BUcket 2: 80% > 90%
+Bucket 3 :90% > 100%
+
+Let's compute the deciles using R "cut" function.
+
+```{r}
+Customer_Train$deciles=cut(Customer_Train$Prob_1, unique(qs_cart)
+                    ,include.lowest = TRUE,right=FALSE)
+table(Customer_Train$deciles)
+#print(Customer_Train$deciles)
+head(Customer_Train)
+print(Customer_Train)
+```
+
+As mentioned before, the all entries with a decile value of 0 to 0.002 will be put in one bucket. Values which are greater than 0.002 and upto 0.188 will be grouped seperately. Last but not the least, values above 0.118 and upto 1 will be grouped into a seperate group. 
+
+```{r}
+#install.packages("data.table")
+library(data.table)# provides us options to various changes that we could do in databases.
+#install.packages("scales")
+library(scales) 
+#View(Customer_Train)
+Customer_TrainDT = data.table(Customer_Train[,c(-1,-5)]) # Train data set into a data table format.
+
+CART_rankTbl = Customer_TrainDT[, list(cnt = length(Personal.Loan)),by=deciles][order(-deciles)] # Creating rank data table.
+print(CART_rankTbl)
+
+```
+
+So the above output shows that number of rows in each of the 3 deciles.
+
+
+```{r}
+CART_rankTbl = Customer_TrainDT[, list(cnt =length(Personal.Loan),cnt_Loan1=sum(Personal.Loan==1),cnt_Loan0=sum(Personal.Loan==0)),by=deciles][order(-deciles)]
+
+CART_rankTbl$rrate = round(CART_rankTbl$cnt_Loan1 / CART_rankTbl$cnt,4)*100; # Response rate
+
+# Let's calculate the cumulative response rate.
+CART_rankTbl$Cum_Resp =cumsum(CART_rankTbl$cnt_Loan1)
+CART_rankTbl$Cum_nonResp =cumsum(CART_rankTbl$cnt_Loan0)
+
+CART_rankTbl$Cum_rel_Resp = round(CART_rankTbl$Cum_Resp / sum(CART_rankTbl$cnt_Loan1),4)*100
+CART_rankTbl$Cum_rel_nonResp = round(CART_rankTbl$Cum_nonResp /sum(CART_rankTbl$cnt_Loan0),4)*100
+
+CART_rankTbl$KS=abs(CART_rankTbl$Cum_rel_Resp -CART_rankTbl$Cum_rel_nonResp) 
+
+print(CART_rankTbl)
+```
+
+The above summary shows the 1s and 0s of the personal loan coloumn based on different deciles.
+Additionally, the ast coloumn illustrates on the response rate of the customers. The first decile contains the maximum number of response rate. The third decile shows a very poor response rate.
+
+
+KS & AREA UNDER CURVE.
+```{r}
+#install.packages("ROCR")
+library(ROCR)
+library(ineq)
+
+```
+
+```{r}
+predObj = prediction(Customer_Train$Prob_1, Customer_Train$Personal.Loan)
+
+# predobj       - Object
+# prediction    - Belongs to ROCR library
+# Prediction function takes probability and target and creates an object.
+
+perf = performance(predObj, "tpr", "fpr") # using the prediction performance rate and find True Positive Rate and False Positive Rate.
+plot(perf)
+```
+
+The above graph illustrates the False Positive Rate Vs True Positive Rate.
+
+```{r}
+#print(perf@y.values[[1]]-perf@x.values[[1]])
+KS = max(perf@y.values[[1]]-perf@x.values[[1]]) # Computing maximum KS values.
+print(KS)
+
+auc = performance(predObj,"auc"); 
+auc = as.numeric(auc@y.values)
+print(auc)
+gini = ineq(Customer_Train$Prob_1, type="Gini")
+print(gini)
+```
+Based on the computation of KS from ROC curve 91.56% is matching well with the KS value computed using a Rank table calculation. This confirms the accuracy of our procedure.
+
+KS   = 94.71%
+AUC  = 99.76%
+GINI = 90.62%
+
+Now, we use the Concordance function using a package called Information Package to find the Concordance and Discordance ratios:
+
+  
+```{r}
+#install.packages("InformationValue")
+library(InformationValue)
+Concordance(actuals=Customer_Train$Personal.Loan, predictedScores=Customer_Train$Prob_1)
+```
+
+
+
+
+
+

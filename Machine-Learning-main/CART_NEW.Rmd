@@ -1,0 +1,112 @@
+---
+title: "CART MODELS"
+author: "Karthik"
+date: "2/15/2020"
+output: html_document
+---
+
+```{r}
+#install.packages("rpart")
+library(rpart)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(caTools)
+```
+
+
+```{r}
+head(CART_Train,10)
+
+```
+
+
+
+```{r}
+sum(CART_Train$Personal.Loan=="1")
+sum(CART_Test$Personal.Loan=="1")
+
+```
+
+```{r}
+cartParameters = rpart.control(minisplit=30,minibucket=10,cp=0,xval=10)
+cartModel_Train=rpart(formula=Personal.Loan~.,data=CART_Train[,c(-1,-5)],method="class",
+                control=cartParameters)
+cartModel_Train
+```
+
+Based on the CART model output it can be said that there 336 GOOD predictions out of 3500 datasets. This shows a unbalance nature of the dataset.Probability of good prediciton is about 9.6% while 90.4% probability of bad prediction.
+
+```{r}
+View(CART_Train)
+names(CART_Train)
+rpart.plot(cartModel_Train,cex = NULL,roundint=FALSE,
+           tweak = 1.5,fallen.leaves = TRUE,
+           varlen = -3,faclen = -3,box.palette=c("green","green2","green4","orange"))
+```
+
+
+
+```{r}
+#install.packages("rattle")
+library(rattle)
+#install.packages("RColorBrewer")
+library(RColorBrewer)
+par(mfrow=c(1,1))
+fancyRpartPlot(cartModel_Train)
+```
+
+
+```{r}
+plotcp(cartModel_Train) # Plot of a relativeerrror
+
+printcp(cartModel_Train) # Print the relative error
+
+```
+
+
+Now let's prune the tree to obtain a better CART model. The following command will calculate a best CP value.
+
+```{r}
+bestcp=cartModel_Train$cptable[which.min(cartModel_Train$cptable[,"xerror"]),"CP"]
+bestcp
+```
+
+```{r}
+  tree =   rpart(formula = Target ~ ., 
+                 data = trainDS, method = "class", minsplit=100, minbucket = 10, cp = 0.0021, xval = 10)
+```
+
+
+
+```{r}
+ptree = prune(cartModel_Train, cp= 0.00297619 ,"CP")
+printcp(ptree)
+
+ptree
+rpart.plot(ptree,roundint=FALSE,tweak = 1.0,
+           fallen.leaves = TRUE,varlen = -3,faclen = -3,
+           box.palette=c("green","green2","green4","orange"))
+
+```
+
+
+Finally, we might want to use the decision tree to predict the 
+class for each row and/or score the probabilities:
+```{r}
+
+CART_Train$predict.class = predict(ptree, CART_Train, type = "class")
+CART_Train$prob_1 = predict(ptree, CART_Train, type = "prob")[,"1"]
+head(CART_Train,20)
+View(CART_Train)
+```
+As shown in the above table, it can be said that all personal loan 1 prediction have higer probability in the range of approximately 97%.
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,149 @@
+---
+title: "CART model analysis"
+author: "Karthik"
+date: "2/16/2020"
+output: html_document
+---
+
+Let's run the performance model evaluation on the test dataset.
+
+
+The code below also calculates the error rate of the off diagonal entries of the confusion matrix.
+
+```{r}
+CART_Test$predict.class = predict(ptree, CART_Test, type = "class")
+CART_Test$prob_1 = predict(ptree, CART_Test, type = "prob")[,"1"]
+head(CART_Test,20)
+#View(CART_Test
+```
+
+As shown in the above table, it can be said that all personal loan 1 prediction have higer probability in the range of approximately 97%.
+```{r}
+Table_CART_Test=table(CART_Test$Personal.Loan, CART_Test$predict.class)
+Table_CART_Test
+
+print((Table_CART_Test[1,2]+Table_CART_Test[2,1])/nrow(CART_Test))
+```
+The Confusion matrix illustrates the mis-classification through the off diagonal entries.
+The error rate of the confusion matrix to be 0.02%.
+
+
+THE RANK ORDERING TABLE
+
+Now we chop all the data into various buckets.But based on the decision tree output there are only certain number of possibilities are with the end node. First let's find all the percentile and chop up the data.
+
+Therefore, calculate the decile thresholds and use those thresholds to compute various columns in a rank order table
+
+```{r}
+probs=seq(0,1,length=11) # Probabilities sequence starts from 0 to 1, with the length of 11.
+print(probs)
+
+qs_cart=quantile(CART_Test$prob_1, probs)# Quantile usually buckets using 10 different 
+print(qs_cart) # prob of each 10% seems same. So, when we basket there going to be less than 10 buckets. Value in the lecture is diferent at 70%,80%,90% and 100%. Therefore, 5 baskets cane be seen.
+
+```
+
+So, the output above illustrates the number chops that can be done in the CART_Test dataset. 
+
+Let's compute the deciles using R "cut" function.
+
+```{r}
+CART_Test$deciles=cut(CART_Test$prob_1, unique(qs_cart)
+                    ,include.lowest = TRUE,right=FALSE)
+table(CART_Test$deciles)
+print(CART_Test$deciles)
+head(CART_Test)
+print(CART_Test)
+```
+
+As mentioned before, the all entries with a decile value of 0 to 0.00421 will be put in one bucket. Values which are greater than 0.00421 and upto 0.117 will be grouped seperately. Last but not the least values above 0.117 and upto 1 will be grouped into a seperate group. 
+
+```{r}
+#install.packages("data.table")
+library(data.table)# provides us options to various changes that we could do in databases.
+#install.packages("scales")
+library(scales) 
+#View(CART_Test)
+CART_TestDT = data.table(CART_Test[,c(-1,-5)]) # Test data set into a data table format.
+
+CART_rankTbl = CART_TestDT[, list(cnt = length(Personal.Loan)),by=deciles][order(-deciles)] # Creating rank data table.
+print(CART_rankTbl)
+
+```
+
+So the above output shows that number of rows in each of the 3 deciles.
+
+
+```{r}
+CART_rankTbl = CART_TestDT[, list(cnt =length(Personal.Loan),cnt_Loan1=sum(Personal.Loan==1),cnt_Loan0=sum(Personal.Loan==0)),by=deciles][order(-deciles)]
+
+CART_rankTbl$rrate = round(CART_rankTbl$cnt_Loan1 / CART_rankTbl$cnt,4)*100; # Response rate
+
+# Let's calculate the cumulative response rate.
+CART_rankTbl$Cum_Resp =cumsum(CART_rankTbl$cnt_Loan1)
+CART_rankTbl$Cum_nonResp =cumsum(CART_rankTbl$cnt_Loan0)
+
+CART_rankTbl$Cum_rel_Resp = round(CART_rankTbl$Cum_Resp / sum(CART_rankTbl$cnt_Loan1),4)*100
+CART_rankTbl$Cum_rel_nonResp = round(CART_rankTbl$Cum_nonResp /sum(CART_rankTbl$cnt_Loan0),4)*100
+
+CART_rankTbl$KS=abs(CART_rankTbl$Cum_rel_Resp -CART_rankTbl$Cum_rel_nonResp) 
+
+print(CART_rankTbl)
+```
+
+The above summary shows the 1s and 0s of the personal loan coloumn based on different deciles.
+Additionally, the "rrate" coloumn illustrates on the response rate of the customers. The first decile contains the maximum number of response rate. The second and third deciles shows a very poor response rate.
+
+
+KS & AREA UNDER CURVE.
+```{r}
+#install.packages("ROCR")
+library(ROCR)
+library(ineq)
+
+```
+
+```{r}
+predObj = prediction(CART_Test$prob_1, CART_Test$Personal.Loan)
+
+# predobj       - Object
+# prediction    - Belongs to ROCR library
+# Prediction function takes probability and target and creates an object.
+
+perf = performance(predObj, "tpr", "fpr") # using the prediction performance rate and find True Positive Rate and False Positive Rate.
+plot(perf)
+```
+
+The above graph illustrates the False Positive Rate Vs True Positive Rate.
+
+```{r}
+#print(perf@y.values[[1]]-perf@x.values[[1]])
+KS = max(perf@y.values[[1]]-perf@x.values[[1]]) # Computing maximum KS values.
+print(KS)
+
+auc = performance(predObj,"auc"); 
+auc = as.numeric(auc@y.values)
+print(auc)
+gini = ineq(CART_Test$prob_1, type="Gini")
+print(gini)
+```
+Based on the computation of KS from ROC curve 91.56% is matching well with the KS value computed using a Rank table calculation. This confirms the accuracy of our procedure.
+
+KS   = 92.43%
+AUC  = 98.27%
+GINI = 87.64%
+
+Now, we use the Concordance function using a package called Information Package to find the Concordance and Discordance ratios:
+
+  
+```{r}
+#install.packages("InformationValue")
+library(InformationValue)
+Concordance(actuals=CART_Test$Personal.Loan, predictedScores=CART_Test$prob_1)
+```
+
+
+
+
+
+
