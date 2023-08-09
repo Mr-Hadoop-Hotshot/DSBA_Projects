@@ -1,0 +1,125 @@
+---
+title: "H1N1 Case Study Model"
+author: "Karthik"
+date: "10/22/2020"
+output: html_document
+---
+```{r}
+library("e1071") # Naive Bayes Algorithm
+library("caret") # Confusion Matrix
+library("InformationValue")# Optimal Cutoff Value
+library("ROCR")# ROC curve function
+```
+
+
+
+#2.0 Naive Bayes Prediction
+## 2.1 NB on Train Dataset
+```{r}
+
+# NB Model building and training on TRAIN dataset.
+#-------------------------------------------------
+
+train.D.NB <- train.D    # Creating new data set to keep the original dataset untouched.
+
+x = train.D.NB[,c(2:36)] # Independent Variable
+y = train.D.NB$H1N1_Vaccine # Predicted Variable
+
+#2,3,11,12,17,18,20,21,36
+# Naive Bayes Model
+#------------------
+model.H1N1.nb = train(x,y,'nb',trControl=trainControl(method='cv',number=10))
+
+
+# Prediction using NB model.
+#--------------------------
+
+# Creating a Separate Dataframe for prediction.
+nb.results.df <- data.frame(real=train.D.NB$H1N1_Vaccine)  
+
+# Making prediction & Tabulating the o/p
+nb.results.df$nb.prob <- predict(model.H1N1.nb,train.D.NB,type='prob')[,2] 
+
+# Categorizing the prediction based threshold value.
+nb.results.df$nb.class <- ifelse(nb.results.df$nb.prob >=0.82,"1","0") 
+
+# Visualize the prediction
+plot(predict(model.H1N1.nb,train.D.NB,type='prob')[,2]) 
+
+# Convert the model prediction in factor.
+nb.results.df$nb.class = as.factor(nb.results.df$nb.class) 
+
+# Calculating the optimal cutoff value.
+InformationValue::optimalCutoff(ifelse(nb.results.df$real=="1","1","0"),nb.results.df$nb.prob) 
+        # NOTE :  Any value between 0.04 to 0.6 gives very good prediction.
+
+
+# Model Prediction Power Evaluation - train
+#------------------------------------------
+
+# Confusion Matrix and other model performance tool.
+caret::confusionMatrix(nb.results.df$real,nb.results.df$nb.class) 
+
+InformationValue::Concordance(ifelse(nb.results.df$real=='1','1','0'),nb.results.df$nb.prob)
+
+# Variable importance plot to identify mostly contributed variable.
+plot(varImp(model.H1N1.nb)) 
+
+```
+
+
+##2.2  NB on Test Dataset
+```{r}
+#test.D # Test dataset (30% of the complete.cases dataset)
+
+# Creating a dataframe for test dataset prediction
+nb.test.df <- data.frame(real=test.D$H1N1_Vaccine)
+
+# predicting on test dataset.
+nb.test.df$nb.prob <- predict(model.H1N1.nb,test.D[,c(2:36)],type='prob')[,2]
+
+# Applying the same threshold value used in train dataset.
+nb.test.df$nb.class <- ifelse(nb.test.df$nb.prob >=0.82,"1","0") 
+
+# Visualizing the test dataset prediction.
+plot(predict(model.H1N1.nb,test.D,type='prob')[,2]) 
+
+# Converting the prediction in to a factor.
+nb.test.df$nb.class = as.factor(nb.test.df$nb.class) 
+#View(nb.test.df)
+# # Model Prediction Power Evaluation - test
+#-------------------------------------------
+caret::confusionMatrix(nb.test.df$real,nb.test.df$nb.class)
+
+```
+
+
+#-----------------------------------
+#3.0 Model Performance Test Dataset
+## 3.1ROC - Test Dataset
+
+```{r}
+
+pred.nb <- prediction(nb.test.df$nb.prob,nb.test.df$real)
+perf.nb <- performance(pred.nb,"tpr","fpr")
+plot(perf.nb,col="blue",main="ROC Plot NB - Test H1N1 Vaccine")+abline(0,1,lty=8,col="red")
+```
+
+##3.2 AUC - Test Dataset
+```{r}
+test.auc.nb <- performance(pred.nb,"auc")
+test.auc.nb<- as.numeric(test.auc.nb@y.values)
+round(test.auc.nb*100,2)
+```
+
+##3.3 KS Statistics - Test Dataset
+```{r}
+ks_table.nb <-max(attr(perf.nb, "y.values")[[1]] - (attr(perf.nb, "x.values")[[1]]))
+
+round(ks_table.nb*100,2)
+```
+
+
+
+
+

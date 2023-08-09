@@ -1,0 +1,126 @@
+---
+title: "H1N1_Logistic_Regression_Seasonal_Vaccine"
+author: "Karthik"
+date: "10/25/2020"
+output: html_document
+---
+
+
+# 1.0 Logistic Regression Model - Seasonal Vaccine
+```{r}
+# Preaparing Train & Test Dataset
+train.log.S <- train.D[,-c(1,37)] # Logistic Regression Train Dataset
+test.log <- test.D # Logistic Regression Test Dataset.
+
+colnames(train.log) # Displays column names of train.log dataset
+
+# Building Logistic Regression Model
+model.mlm1.seas <- glm(formula = Seasonal_Vaccine ~Concern+ Knowledge+ Antiviral_Meds+ Social_Distancing+Face_Mask+ Wash_Hands+Large_Gatherings +Outside_Home+Touch_Face+ H1N1_Vac_Recommendation+Seasonal_Vac_Recommendation+Choronic_Medical_History+Six_Months_Child_Contact+Healthcare_Worker+Health_Insurance+Opinion_H1N1_vacc_effective+Opinion_H1N1_Risk+Opinion_H1N1_Sick_from_Vacc+Opinion_Seas_Vacc_Effective+Opinion_seas_risk+Opinion_Seas_Sick_from_Vacc+Age_Group+Education+Race+Sex+Income_Poverty+Marital_Status+Property+Geography+Census_msa+Adults+Children+Employment_Industry+Occupation,data=train.log.s,family="binomial")
+
+
+summary(model.mlm1.seas) # Summary on the built Logistic Regression Model.
+```
+
+# 2.0 Variable selection
+
+```{r}
+# Conducting StepAIC to identify the attribute combination with lowest error score.
+
+model.mlr.step =stepAIC(model.mlm1.seas,direction = "both",k=5) 
+```
+
+#3.0 New Logistic Model - Seasonal Vaccine
+```{r}
+model.mlm1.Seas <-glm(formula = Seasonal_Vaccine ~Knowledge + H1N1_Vac_Recommendation + Seasonal_Vac_Recommendation + Healthcare_Worker+Health_Insurance+Opinion_Seas_Vacc_Effective+ Opinion_seas_risk+ Opinion_Seas_Sick_from_Vacc+Age_Group+Property+Employment_Industry,data=train.log.S,family="binomial")
+vif(model.mlm1.Seas)
+```
+#4.0 TRAIN DATASET Prediction 
+```{r}
+# Predict Probability
+LRS <-data.frame(Real =train.log.S$Seasonal_Vaccine)
+
+LRS$lm.predict.step = predict(model.mlm1.Seas,train.log.S,type="response")
+
+# Predict Class Based on the probability
+LRS$lm.class.step = ifelse(LRS$lm.predict.step >=  0.5984058,"1","0")
+
+LRS$lm.class.step = as.factor(LRS$lm.class.step)
+#colnames(train.log)
+
+optimalCutoff(ifelse(LRS$lm.class.step=="1",1,0),LRS$lm.predict.step)
+```
+# 5.0 Confussion Matrix
+```{r}
+caret::confusionMatrix(LRS$Real,LRS$lm.class.step)
+InformationValue:: Concordance(ifelse(LRS$Real=='1','1','0'),LRS$lm.predict.step)
+```
+
+# 6.0 TEST DATASET PREDICTION
+
+```{r}
+LR1S <-data.frame(Real =test.log$Seasonal_Vaccine)
+# Preidict Probability
+LR1S$lm.predict.test = predict(model.mlm1.Seas,test.log,type="response")
+
+# Predict Class Based on the probability
+LR1S$lm.class.test = ifelse(LR1S$lm.predict.test >=0.5,"1","0")
+
+LR1S$lm.class.test= as.factor(LR1S$lm.class.test)
+
+
+caret::confusionMatrix(LR1S$Real,LR1S$lm.class.test)
+InformationValue:: Concordance(ifelse(LR1S$Real=='1','1','0'),LR1S$lm.predict.test)
+```
+
+#7.0 ROC
+
+```{r}
+
+pred.lm.s <- prediction(LR1S$lm.predict.test,LR1S$Real)
+perf.lm.s <- performance(pred.lm.s,"tpr","fpr")
+plot(perf.lm.s,col="blue",main="ROC Plot Log Reg - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+#8.0 AUC
+```{r}
+test.auc.s <- performance(pred.lm.s,"auc")
+test.auc.s<- as.numeric(test.auc.s@y.values)
+round(test.auc.s*100,2)
+```
+
+#9.0 KS Statistics
+```{r} 
+test.ks.s <-max(attr(perf.lm.s,"y.values")[[1]]-attr(perf.lm.s,"x.values")[[1]])
+test.ks.s
+```
+
+# Test Feature Prediction - SEASONAL
+
+```{r}
+
+# Model for H1N1 Vaccine Predict.
+model.mlm1.Seas <-glm(formula = Seasonal_Vaccine~
+                        Knowledge+
+                        H1N1_Vac_Recommendation+
+                        Seasonal_Vac_Recommendation+
+                        Healthcare_Worker+
+                        Health_Insurance+
+                        Opinion_Seas_Vacc_Effective+
+                        Opinion_seas_risk+ 
+                        Opinion_Seas_Sick_from_Vacc+
+                        Age_Group+
+                        Property+
+                        Employment_Industry,
+                      data=train.log.S,family="binomial")
+
+
+
+#Predicted Probability approximated to 2 decimal point.
+Final_Test$Seasonal_Vaccine_Predict = round(predict(model.mlm1.Seas,TestTreated,type="response"),2) # Predict Seasonal Vaccine candidate and approximate the prediction score to 2 decimal places.
+Final_Test 
+
+# Store the final findings as .csv format.
+write.csv(Final_Test,"Final_Submission.csv") 
+```
+
+

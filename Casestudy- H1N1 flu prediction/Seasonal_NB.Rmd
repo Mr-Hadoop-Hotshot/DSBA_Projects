@@ -1,0 +1,152 @@
+---
+title: "Seasonal Vacc_NB Model"
+author: "Karthik"
+date: "10/24/2020"
+output: html_document
+---
+
+
+```{r}
+library("e1071") # Naive Bayes Algorithm
+library("caret") # Confusion Matrix
+library("InformationValue")# Optimal Cutoff Value
+library("ROCR")# ROC curve function
+```
+
+
+
+#2.0 Naive Bayes Prediction
+## 2.1 NB on Train Dataset
+```{r}
+
+# NB Model building and training on TRAIN dataset.
+#-------------------------------------------------
+
+train.D.NB <- train.D    # Creating new data set to keep the original dataset untouched.
+
+x = train.D.NB[,c(2:36)] # Independent Variable
+y = train.D.NB$Seasonal_Vaccine # Predicted Variable
+
+#2,3,11,12,17,18,20,21,36
+# Naive Bayes Model
+#------------------
+model.nb = train(x,y,'nb',trControl=trainControl(method='cv',number=10))
+
+
+# Prediction using NB model.
+#--------------------------
+
+# Creating a Separate Dataframe for prediction.
+nb.results.df <- data.frame(real=train.D.NB$Seasonal_Vaccine)  
+
+# Making prediction & Tabulating the o/p
+nb.results.df$nb.prob <- predict(model.nb,train.D.NB,type='prob')[,2] 
+
+# Categorizing the prediction based threshold value.
+nb.results.df$nb.class <- ifelse(nb.results.df$nb.prob >=0.519997,"1","0") 
+
+# Visualize the prediction
+plot(predict(model.nb,train.D.NB,type='prob')[,2]) 
+
+# Convert the model prediction in factor.
+nb.results.df$nb.class = as.factor(nb.results.df$nb.class) 
+
+# Calculating the optimal cutoff value.
+InformationValue::optimalCutoff(ifelse(nb.results.df$real=="1","1","0"),nb.results.df$nb.prob) 
+        # NOTE :  Any value between 
+
+
+# Model Prediction Power Evaluation - train
+#------------------------------------------
+
+# Confusion Matrix and other model performance tool.
+caret::confusionMatrix(nb.results.df$real,nb.results.df$nb.class) 
+InformationValue::Concordance(ifelse(nb.results.df$real=='1','1','0'),nb.results.df$nb.prob)
+
+# Variable importance plot to identify mostly contributed variable.
+plot(varImp(model.nb)) 
+
+```
+
+
+##2.2  NB on Test Dataset
+```{r}
+#test.D # Test dataset (30% of the complete.cases dataset)
+
+# Creating a dataframe for test dataset prediction
+nb.test.sea.df <- data.frame(real=test.D$Seasonal_Vaccine)
+
+# predicting on test dataset.
+nb.test.sea.df$nb.prob <- predict(model.nb,test.D[,c(2:36)],type='prob')[,2]
+
+# Applying the same threshold value used in train dataset.
+nb.test.sea.df$nb.class <- ifelse(nb.test.sea.df$nb.prob >=0.519997,"1","0") 
+
+# Visualizing the test dataset prediction.
+plot(predict(model.nb,test.D,type='prob')[,2]) 
+
+# Converting the prediction in to a factor.
+nb.test.sea.df$nb.class = as.factor(nb.test.sea.df$nb.class) 
+#View(nb.test.df)
+# # Model Prediction Power Evaluation - test
+#-------------------------------------------
+caret::confusionMatrix(nb.test.sea.df$real,nb.test.sea.df$nb.class)
+
+```
+
+
+#-----------------------------------
+#3.0 Model Performance Test Dataset
+## 3.1 ROC - Test Dataset
+
+```{r}
+
+pred.sea.nb <- prediction(nb.test.sea.df$nb.prob,nb.test.sea.df$real)
+perf.sea.nb <- performance(pred.sea.nb,"tpr","fpr")
+plot(perf.sea.nb,col="blue",main="ROC Plot NB - Test H1N1 Vaccine")+abline(0,1,lty=8,col="red")
+```
+
+##3.2 AUC - Test Dataset
+```{r}
+test.sea.auc.nb <- performance(pred.sea.nb,"auc")
+test.sea.auc.nb<- as.numeric(test.sea.auc.nb@y.values)
+round(test.sea.auc.nb*100,2)
+```
+
+##3.3 KS Statistics - Test Dataset
+```{r}
+ks_table.sea.nb <-max(attr(perf.sea.nb, "y.values")[[1]] - (attr(perf.sea.nb, "x.values")[[1]]))
+
+round(ks_table.sea.nb*100,2)
+```
+
+
+# Final Prediction - Naive Bayes
+
+```{r}
+##2.2  NB on Test Dataset
+```{r}
+#test.D # Test dataset (30% of the complete.cases dataset)
+
+# Creating a dataframe for test dataset prediction
+nb.Final.df <- data.frame(real=TestFeatures$ID)
+
+
+# predicting on test dataset.
+nb.Final.df$nb.prob <-predict(model.mlm2,TestFeatures[,c(2:36)],type='prob')[,2]
+
+# Applying the same threshold value used in train dataset.
+nb.test.sea.df$nb.class <- ifelse(nb.test.sea.df$nb.prob >=0.519997,"1","0") 
+colnames(TestFeatures)
+
+any_na(TestFeatures)
+
+
+
+
+```
+
+
+
+
+

@@ -1,0 +1,156 @@
+---
+title: "Logistic Regression - H1N1 Model"
+author: "Karthik"
+date: "10/23/2020"
+output: html_document
+---
+
+#1.0 Libraries
+```{r}
+library("MASS")  # STEP AIC function
+library("caret") # Confustion Matrix
+library("DMwR")  # SMOTE
+library("InformationValue") # Optimal cutoff
+library("caTools") # Sample.split function for train & Test split.
+library("ROCR") # Plotting ROC Curve 
+library("DMwR") # Knn Imputations
+```
+
+
+
+# 2.0 Logistic Regression Model
+```{r}
+# Preaparing Train & Test Dataset
+train.log <- train.D[,-c(1,38)] # Logistic Regression Train Dataset
+test.log <- test.D # Logistic Regression Test Dataset.
+
+colnames(train.log) # Displays column names of train.log dataset
+
+# Building Logistic Regression Model
+model.mlm1 <- glm(formula = H1N1_Vaccine ~Concern+ Knowledge+ Antiviral_Meds+ Social_Distancing+Face_Mask+ Wash_Hands+Large_Gatherings +Outside_Home+Touch_Face+ H1N1_Vac_Recommendation+Seasonal_Vac_Recommendation+Choronic_Medical_History+Six_Months_Child_Contact+Healthcare_Worker+Health_Insurance+Opinion_H1N1_vacc_effective+Opinion_H1N1_Risk+Opinion_H1N1_Sick_from_Vacc+Opinion_Seas_Vacc_Effective+Opinion_seas_risk+Opinion_Seas_Sick_from_Vacc+Age_Group+Education+Race+Sex+Income_Poverty+Marital_Status+Property+Geography+Census_msa+Adults+Children+Employment_Industry+Occupation,data=train.log,family="binomial")
+
+
+summary(model.mlm1) # Summary on the built Logistic Regression Model.
+```
+
+# 3.0 Variable selection
+
+```{r}
+vif(model.mlm1) # Applying Variable Inflation Factor.
+model.mlr.step =stepAIC(model.mlm1,direction = "both",k=5) # Conducting StepAIC to identify the attribute combination with lowest error score.
+```
+#3.1 Building New Logistic Regression Model
+```{r}
+# Model for H1N1 Vaccine Predict
+model.mlm2 <- glm(formula = H1N1_Vaccine~Knowledge+H1N1_Vac_Recommendation+ Seasonal_Vac_Recommendation+Healthcare_Worker+ Health_Insurance+Opinion_H1N1_vacc_effective+Opinion_H1N1_Risk+Opinion_seas_risk+ Opinion_Seas_Sick_from_Vacc+Age_Group+Sex+Occupation, data=train.log, family="binomial")
+
+
+```
+# 4.0 Model Prediction 
+```{r}
+
+# Predict Probability
+LR <-data.frame(Real =train.log$H1N1_Vaccine)
+
+LR$lm.predict.step = predict(model.mlm2,train.log,type="response")
+
+# Predict Class Based on the probability
+LR$lm.class.step = ifelse(LR$lm.predict.step >=  0.5,"1","0")
+
+LR$lm.class.step = as.factor(LR$lm.class.step)
+colnames(train.log)
+```
+
+###4.1 Optimal Cutoff
+```{r}
+
+optimalCutoff(ifelse(LR$lm.class.step=="1",1,0),LR$lm.predict.step)
+
+```
+
+# 5.0 Confussion Matrix
+```{r}
+caret::confusionMatrix(LR$Real,LR$lm.class.step)
+InformationValue:: Concordance(ifelse(LR$Real=='1','1','0'),LR$lm.predict.step)
+```
+
+# 6.8 TEST
+
+```{r}
+LR1 <-data.frame(Real =test.log$H1N1_Vaccine)
+# Preidict Probability
+LR1$lm.predict.test = predict(model.mlm2,test.log,type="response")
+
+# Predict Class Based on the probability
+LR1$lm.class.test = ifelse(LR1$lm.predict.test >=0.5,"1","0")
+
+LR1$lm.class.test= as.factor(LR1$lm.class.test)
+
+
+caret::confusionMatrix(LR1$Real,LR1$lm.class.test)
+InformationValue:: Concordance(ifelse(LR1$Real=='1','1','0'),LR1$lm.predict.test)
+```
+
+#6.9 ROC
+
+```{r}
+LR1
+pred.lm <- prediction(LR1$lm.predict.test,LR1$Real)
+perf.lm <- performance(pred.lm,"tpr","fpr")
+plot(perf.lm,col="blue",main="ROC Plot Log Reg - Test Dataset")+abline(0,1,lty=8,col="red")
+```
+
+#7.0 AUC
+
+```{r}
+test.auc <- performance(pred.lm,"auc")
+test.auc<- as.numeric(test.auc@y.values)
+round(test.auc*100,2)
+```
+
+#7.1 KS Statistics
+```{r} 
+test.ks <-max(attr(perf.lm,"y.values")[[1]]-attr(perf.lm,"x.values")[[1]])
+test.ks
+```
+
+# Test Feature Prediction - H1N1
+
+```{r}
+
+A<-TestFeatures # Storing Test Features in another dataset "A"
+
+# Model for H1N1 Vaccine Predict.
+model.mlm2 <- glm(formula = H1N1_Vaccine~
+                    Knowledge+
+                    H1N1_Vac_Recommendation+ 
+                    Seasonal_Vac_Recommendation+
+                    Healthcare_Worker+  
+                    Health_Insurance+
+                    Opinion_H1N1_vacc_effective+
+                    Opinion_H1N1_Risk+
+                    Opinion_seas_risk+
+                    Opinion_Seas_Sick_from_Vacc+
+                    Age_Group+
+                    Sex+
+                    Occupation, data=train.log, family="binomial")
+
+# Model for Seasonal Vaccine Predict
+
+# Identified Missing Values were treated using knn imputation in Test Features dataset
+
+#TestTreated <- knnImputation(A[,], k = 5) # Treated dataset is stored in TestTreated
+
+# Create New DataFrame for Final Prediction
+Final_Test<-data.frame(Respondent_ID =TestTreated$ID) # Extract ID coloumn and add to "Final_Test" Dataset
+
+#Predicted Probability approximated to 2 decimal point.
+Final_Test$H1N1_Vaccine_Predict = round(predict(model.mlm2,TestTreated,type="response"),2) # Predict H1N1 Vaccine candidate and approximate the prediction score to 2 decimal places.
+
+```
+
+
+
+
+
+
