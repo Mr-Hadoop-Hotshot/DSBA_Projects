@@ -1,0 +1,193 @@
+---
+title: "Season_Bowl_Ranking"
+author: "Karthik"
+date: "1/1/2021"
+output: html_document
+---
+
+
+#1.0 Libraries
+```{r}
+library(corrplot)
+library(dplyr)
+library(nortest)
+library(GPArotation)
+library(psych)#Barlett Sphericity Test
+library(purrr) # keep() function
+library(tidyverse)
+
+```
+
+
+#2.0 Bowler Ranking
+##2.1 Ball df preparation
+
+```{r}
+
+season_ball_num <- season_ball %>% as.data.frame(season_ball) %>% select("Player","Mat.bs","Inns.bs","Overs.bs","Mdns.bs","Runs.bs","Wkts.bs","Ave.bs","Econ.bs","SR.bs","four.bs","five.bs","Ct.bs","St.bs","Season.bs") %>% filter(Season.bs %in% c("2019","2018","2017","2016","2015"))  # Extract last 5 year season information only.
+
+
+#season_ball_num <- season_ball %>% as.data.frame(season_ball) %>% select("Player":"Season.bs") %>% filter(Season.bs %in% c("2019","2018","2017","2016","2015","2014","2013","2012","2011","2010"))
+
+glimpse(season_ball_num) # Glance dataset.
+
+season_ball_num[,-c(1,15)] <- lapply(season_ball_num[,-c(1,15)],as.numeric) # Convert variable type into numeric.
+
+
+# Data Wrangling by visualizing individual players performance at once.
+season_ball_wider <- pivot_wider(season_ball_num, names_sep = ".", values_fill = 0, names_from = Season.bs ,values_from =c(Mat.bs,Inns.bs,Overs.bs,Mdns.bs,Runs.bs,Wkts.bs,Ave.bs,Econ.bs,SR.bs,four.bs,five.bs,Ct.bs,St.bs )) 
+
+#d <- season_ball_num%>%
+#  group_by(Season.bs) %>%
+ # mutate(row = row_number()) %>%
+  #tidyr::pivot_wider(names_from = Season.bs, 
+   #                  names_sep = ".", 
+    #                 values_fill = 0,
+     #                values_from=c(Mat.bs,Inns.bs,Overs.bs,Mdns.bs,Runs.bs,
+      #                             Wkts.bs,Ave.bs,Econ.bs,SR.bs,four.bs,five.bs,
+       #                            Ct.bs,St.bs)) %>%
+  #select(-row)
+
+season_ball_wider
+dim(season_ball_wider)
+#season_ball_wider[is.na(season_ball_wider)]<- 0 # Replace NA into 0.
+```
+
+##2.2 Missing Values
+```{r}
+anyNA(season_ball_wider)
+
+```
+
+
+There are no missing values in the given seasonal batting statistics dataset.
+
+##2.3 Normality Check
+Shapiro Wilk's test is applied to check the normality of the attributes.
+
+Ho: Attribute value follows a normal distribution.
+Ha: Attribute value does not follow a normal distribution.
+
+```{r}
+
+dim(season_ball_wider)
+season_ball_numeric =season_ball_wider %>% keep(is.numeric) # Separate only Numeric variable(i.e. Except "Player" attribute.)
+
+
+#Shapiro Test
+#-------------
+#Apply shapiro test to confirm normalization.
+
+f <- function(x) 
+  {
+  
+  if (diff(range(x)) == 0) list() else shapiro.test(x)
+  
+  } # Function to apply shapiro test
+
+season_ball_shap <- apply(season_ball_numeric[,], 1, f) # Apply shapiro test.
+season_ball_shap
+
+```
+Shapiro test on attributes failed to follow a normal distribution. Hence, normalization is necessary.
+
+
+###2.3.1 Scale the data
+```{r}
+season_ball_scale <- scale(season_ball_numeric,center = TRUE,scale=TRUE) # Scaling
+head(season_ball_scale,5)
+
+#season_ball_scale[is.nan(season_ball_scale)]<-0
+
+#season_ball_scale[is.na(season_ball_scale)]<-0
+```
+
+# 3.0 Correlation Analysis
+##3.1 Corrplot
+
+```{r}
+season_ball_scale_edit=season_ball_scale[,-51] # five.bs 2015 contains zero values. 
+season_ball_scale_cor <- cor(season_ball_scale_edit) # Generating Correlation Matrix
+season_ball_scale_cor
+corrplot(season_ball_scale_cor, method= "circle",type="upper") # Plot Correlation Matrix
+
+
+#summary(season_ball_numeric)
+```
+
+#4.0 Barlett Sphericity Test
+This test confirms whether we can apply PCA on the given dataset. Hypothesis of the test as follows.
+
+Ho: Data dimension reduction is not possible.
+Ha: Data dimension reduction is possible.
+
+```{r}
+
+print(cortest.bartlett(season_ball_scale_cor,nrow(season_ball_scale_edit))) # Bartlett test to confirm possibility of PCA application on the dataset.
+```
+P-Value is less than 5%. Hence, Ho is failed to accept.Thus, dimentionality reduction is possible.
+
+#5.0 PCA Transformation
+## 5.1 Eigen Values
+```{r}
+A.ball <- eigen(season_ball_scale_cor) # Calculate Eignen Values of the Correlation Matrix
+eigenValues.ball <-A.ball$values # Tabulating Eigen Values 
+eigenValues.ball
+eigenVectors.ball <- A.ball$vectors # Tabulating Eigen Vectors
+eigenVectors.ball
+
+```
+
+## 5.2 Plot Scree Plot
+```{r}
+print(eigenValues.ball,digits=2) # Eignen Values
+plot(eigenValues.ball,type="lines",xlab="Principal Components",ylab="Eigen Values")# Plot Eignen Values
+```
+## 5.3  PCA - Loadings and Communality
+
+```{r}
+PCA.ball <-principal(season_ball_scale_edit,nFactors=length(season_ball_scale_edit),rotate="varimax") #Apply PCA with all variables
+PCA.ball
+
+```
+
+##5.4  Getting Factor Scores
+
+```{r}
+newdf.ball <- PCA.ball$scores
+dim(newdf.ball)
+dim(season_ball_wider)
+
+newdf.ball = as.data.frame(newdf.ball)
+season_ball_rank <- cbind(season_ball_wider$Player,newdf.ball)
+range(season_ball_rank$PC1)
+
+```
+
+#6.0 Factor Score Ranking
+```{r}
+season_ball_rank =season_ball_rank[order(-season_ball_rank$PC1),]
+View(season_ball_rank)
+season_ball_rank <- rowid_to_column(season_ball_rank, "Bowler_Ranking")
+colnames(season_ball_rank)<- c("Bowler_Ranking","Bowler","Factor_bowling_score")
+
+season_ball_rank
+```
+
+
+## 6.1 Cleaning Names
+```{r}
+
+season_ball_rank$Bowler <- str_to_lower(season_ball_rank$Bowler) # Converting Player Names into lowercase.
+
+season_ball_rank$Bowler <- gsub(" ","_",season_ball_rank$Bowler)#Replace single space into "_"
+season_ball_rank$Bowler <- trimws(gsub("\\s+","",season_ball_rank$Bowler))#Replace double space into none.
+
+season_ball_rank
+```
+
+
+
+
+
+

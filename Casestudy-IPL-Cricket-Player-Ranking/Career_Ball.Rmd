@@ -1,0 +1,118 @@
+---
+title: "Career_Ball"
+author: "Karthik"
+date: "12/1/2020"
+output: html_document
+---
+
+# 1.0 Dataset Download
+```{r}
+season_ball_df <- read_xlsx("season.xlsx",sheet = "Ball") # Season Bowler Dataset
+career_ball_df <- read_xlsx("career.xlsx",sheet = "Ball") # Career Bowler Dataset
+scorecards_ball_df <- read_xlsx("scorecards.xlsx",sheet = "Ball") # Scorecard Dataset
+
+```
+
+```{r}
+dim(season_ball_df)
+dim(career_ball_df)
+dim(scorecards_ball_df)
+```
+
+
+#2.0 EDA
+##2.1 Sanity Check
+###2.1.1 Variable Names
+
+```{r}
+# Changing coloumn names
+
+career_ball <- career_ball_df # Duplicating the original dataset
+colnames(career_ball) <- c("Player","Mat.bc","Inns.bc","Balls.bc","Mdns.bc","Runs.bc","Wkts.bc","fourwkt.bc","fivewkt.bc","Ct.bc","St.bc","Ave.bc","SR.bc","Econ.bc") # Change coloumn names
+colnames(career_ball)
+```
+###2.1.2 Variable Class
+```{r}
+str(career_ball)
+```
+
+
+```{r}
+career_ball$Player <- as.factor(career_ball$Player)
+career_ball$Mat.bc <- as.integer(career_ball$Mat.bc)
+career_ball$Inns.bc <- as.integer(career_ball$Inns.bc)
+career_ball$Balls.bc <- as.integer(career_ball$Balls.bc)
+career_ball$Mdns.bc <- as.integer(career_ball$Mdns.bc)
+career_ball$Runs.bc <-as.integer(career_ball$Runs.bc)
+career_ball$Wkts.bc <-as.integer(career_ball$Wkts.bc)
+career_ball$fourwkt.bc <-as.integer(career_ball$fourwkt.bc)
+career_ball$fivewkt.bc <-as.integer(career_ball$fivewkt.bc)
+career_ball$Ct.bc <-as.integer(career_ball$Ct.bc)
+career_ball$St.bc <-as.integer(career_ball$St.bc)
+career_ball$Ave.bc <-as.numeric(career_ball$Ave.bc)
+career_ball$SR.bc <-as.numeric(career_ball$SR.bc)
+career_ball$Econ.bc <-as.numeric(career_ball$Econ.bc)
+```
+
+#2.2 Univariate Analysis
+Five Number Summary
+```{r}
+summary(career_ball)
+```
+Dataset contains 560 bowler's 14 different attributes IPL information.
+In contrast to batting "average" and "strike rate" best bowler is defined with lower "average" and "strike rate". In addition, to that an bowlers economy rate is another unique attribute to evaluate bowlers performance.
+
+Following is a average of IPL bowlers career statistics.
+
+Bowling Average Rate = 21.32
+Strike Rate = 0.5
+Economy Rate = 6.4
+
+Note that the minimum value of balls thrown by a bowler is "0". That denotes there are some bowlers who did not get a chance to bowl. Performance of a player can be evaluated only if the player is given a chance to perform. Hence, let us filter all the bowlers who has "balls.bc" attribute with a positive value in the range of minimum 6 balls and above. That is assumption is made in this casestudy is to consider bowlers who had bowled atleast one hour.
+
+
+```{r}
+bowlers_career <-career_ball %>% filter(Balls.bc >=6) 
+bowlers_career
+```
+ 
+"bowlers_career" dataset contains all the bowlers information who had bowled minimum of 1 hour and above.
+Interestingly 160 players have not bowled so far and removing those players have influenced most of the performance evaluation metrics. Example, Econ rate average have rose to 8.3 from 6.4. 
+
+Global T20 data benchmarks bolwers with following value.
+Economy Rate = In the range of 6 to 6.07
+
+```{r}
+summary(bowlers_career)
+```
+
+```{r}
+# Extracting Experience players 
+most_bowled_careers <- top_n(bowlers_career,20,Mat.bc) 
+
+# Experienced Bowlers with Best Economy Rate
+top_n(most_bowled_careers,-10,Econ.bc) %>% ggplot(aes(x=reorder(Player,Econ.bc),y=Econ.bc,fill=Econ.bc))+
+           geom_col(stat="identity")+
+           coord_flip()+
+           scale_y_continuous("Economy Rate")+
+          labs(title= "Top 10 Economy Rate",x="Bowlers",y="Econ Rate") 
+```
+
+```{r}
+bowlers_career %>% filter(Player =="R Ashwin")
+```
+
+As per the chart we could say that, in comparison to the overall dataset experienced bowlers economy rate have rose  from 3.75 to 5.0. 
+
+# 2.3 Multivariate Analysis
+Let us proceed pick the most important attributes to make the prediction more meaningful with the players who have had an opportunity to play matches.(i.e: Excluding 140 players with no matches been played)
+
+```{r}
+colnames(bowlers_career)
+bowlers_career %>% 
+  select(Mat.bc,Wkts.bc,Ave.bc,SR.bc,Econ.bc) %>% 
+  ggpairs()
+  
+```
+
+

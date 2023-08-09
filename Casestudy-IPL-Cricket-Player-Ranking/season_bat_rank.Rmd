@@ -1,0 +1,187 @@
+---
+title: "Batsmen Ranking"
+author: "Karthik"
+date: "12/31/2020"
+output: html_document
+---
+
+In this analysis I used Principal Component Analysis scores to rank both batsmen and bowlers. As we know that, all variables are correlated to each other, PCA technique helps us to visualize correlated features as an uncorrelated variables at a new coordinate system. The first PC will be containing the highest variance of the dataset.
+PCA is mathematically known as orthogonal linear transformation.
+
+I have selected "Season" data set to apply PCA. Latest 5 seasons have been taken into consideration due to the evolution of IPL T20 from batsment game to bowlers game. Furthermore, to overcome the changes caused in the team due to retirement and addition of new players happened in last 5 years. 
+
+
+# 1.0 Libraries
+```{r}
+library(corrplot)
+library(dplyr)
+library(nortest)
+library(GPArotation)
+library(psych)#Barlett Sphericity Test
+library(purrr) # keep() function
+```
+
+#2.0 Batsmen Ranking
+##2.1 Bat df preparation
+
+```{r}
+season_bat_num <- season_bat %>% 
+  transmute(
+    Player,
+    Mat.s,
+    Inns.s,
+    NO.s,
+    Runs.s,
+    HS.s,
+    Ave.s,
+    BF.s,
+    SR.s,
+    hundreds.s,
+    fifties.s,
+    ducks.s,
+    boundaries.s=four.s+six.s,
+    Season.s,
+    NO_HS.s)
+str(season_bat_num)
+
+
+levels(season_bat_num$Season.s)
+```
+
+
+
+##2.2 Missing Values
+```{r}
+anyNA(season_bat_num) # Checks for presence of NA entries.
+```
+
+
+There are no missing values in the given seasonal batting statistics dataset.
+
+##2.3 Normality Check
+Shapiro Wilk's test is applied to check the normality of the attributes.
+
+Ho: Attribute value follows a normal distribution.
+Ha: Attribute value does not follow a normal distribution.
+
+```{r}
+
+five_season <- season_bat_num %>% filter(Season.s %in% c("2019","2018","2017","2016","2015")) # Extract last 5 year season information only.
+
+
+five_season[,-c(1,14)] <- lapply(five_season[,-c(1,14)],as.numeric) # Convert variable type into numeric.
+
+glimpse(five_season) # Glance at dataset
+
+five_season[is.na(five_season)]<- 0 # Replace NA into 0.
+
+
+# Data Wrangling by visualizing individual players performance at once.
+
+season_bat_wider <- pivot_wider(five_season, names_sep = ".", values_fill = 0, names_from = Season.s ,values_from =c(Mat.s,Inns.s,NO.s,Runs.s,HS.s,Ave.s,BF.s,SR.s,hundreds.s,fifties.s,ducks.s,boundaries.s,NO_HS.s  ))
+
+season_bat_wider
+
+season_bat_numeric =season_bat_wider %>% keep(is.numeric) # Seperate only Numeric variable(i.e. Except "Player" attribute.)
+
+
+#Shapiro Test
+#--------------------------------------------------------
+season_bat_shap= lapply(season_bat_numeric, shapiro.test) # Apply shapiro test to confirm normalization.
+
+season_bat_shap
+
+str(season_bat_num)
+```
+Shapiro test on attributes failed to follow a normal distribution. Hence, normalization is necessary.
+
+###2.3.1 Scale the data
+```{r}
+z= season_bat_numeric # Assign dataset under a variable z.
+m = apply(z,2,mean) # Obtain mean of each attributes
+s=apply(z,2,sd) # Obtain sd of each attributes
+season_bat_scale <-scale(z,m,s) # Scale the values (i.e: Z-score normalisation)
+
+```
+
+# 3.0 Correlation Analysis
+##3.1 Corrplot
+
+```{r}
+season_bat_scale_cor <- cor(season_bat_scale) # Generating Correlation Matrix
+
+corrplot(season_bat_scale_cor,method= "circle",type="upper") # Plot Correlation Matrix
+```
+
+#4.0 Barlett Sphericity Test
+This test confirms whether we can apply PCA on the given dataset. Hypothesis of the test as follows.
+
+Ho: Data dimension reduction is not possible.
+Ha: Data dimension reduction is possible.
+
+```{r}
+
+print(cortest.bartlett(season_bat_scale_cor,nrow(season_bat_scale))) # Bartlett test to confirm possibility of PCA application on the dataset.
+```
+P-Value is less than 5%. Hence, Ho is failed to accept.Thus, dimentionality reduction is possible.
+
+#5.0 PCA Transformation
+## 5.1 Eigen Values
+```{r}
+
+A.bat <- eigen(season_bat_scale_cor) # Calculate Eignen Values of the Correlation Matrix
+eigenValues.bat <-A.bat$values # Tabulating Eigen Values 
+eigenValues.bat
+eigenVectors.bat <- A.bat$vectors # Tabulating Eigen Vectors
+eigenVectors.bat
+
+```
+## 5.2 Plot Scree Plot
+```{r}
+print(eigenValues.bat,digits=2) # Eignen Values
+plot(eigenValues.bat,type="lines",xlab="Principal Components",ylab="Eigen Values")# Plot Eignen Values
+```
+## 5.3  PCA - Loadings and Communality
+
+```{r}
+
+PCA.bat <-principal(season_bat_scale,nFactors=length(season_bat_scale),rotate="varimax") #Apply PCA with all variables
+
+PCA.bat
+```
+
+##5.4  Getting Factor Scores
+
+```{r}
+
+newdf.bat <- PCA.bat$scores # New df with factor scores
+
+newdf.bat = as.data.frame(newdf.bat) # Convert into a data frame.
+season_bat_rank <- cbind(season_bat_wider$Player,newdf.bat) # Add respective players name.
+range(season_bat_rank$PC1) # Score Range
+dim(newdf.bat)
+dim(season_bat_wider)
+```
+#6.0 Factor Score Ranking
+```{r}
+season_bat_rank =season_bat_rank[order(-season_bat_rank$PC1),] # Sort scores in descending order.
+colnames(season_bat_rank)<- c("Batsmen","Factor_batting_score") # Change column name.
+season_bat_rank <- rowid_to_column(season_bat_rank, "Batsmen_Ranking") # Addition of Row ID.
+season_bat_rank
+```
+
+## 6.1 Cleaning Names
+
+```{r}
+season_bat_rank$Batsmen <- str_to_lower(season_bat_rank$Batsmen) # Converting Player Names into lowercase.
+
+season_bat_rank$Batsmen <- gsub(" ","_",season_bat_rank$Batsmen)#Replace single space into "_"
+season_bat_rank$Batsmen <- trimws(gsub("\\s+","",season_bat_rank$Batsmen))#Replace double space into none.
+
+season_bat_rank
+```
+
+
+
+
+

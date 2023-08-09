@@ -1,0 +1,87 @@
+---
+title: "season_ball"
+author: "Karthik"
+date: "12/2/2020"
+output: html_document
+---
+#1.0 Dataset Preparation
+```{r}
+season_ball <- season_ball_df
+colnames(season_ball)
+
+```
+#2.0 EDA
+##2.1 Sanity Check
+###2.1.1 Variable Names
+
+```{r}
+colnames(season_ball) <- c("Player","Mat.bs","Inns.bs","Overs.bs","Mdns.bs","Runs.bs","Wkts.bs","Ave.bs","Econ.bs","SR.bs","four.bs","five.bs","Ct.bs","St.bs","Season.bs")
+colnames(season_ball)
+```
+###2.1.2 Variable Class
+```{r}
+str(season_ball)
+season_ball$Player <- as.factor(season_ball$Player)
+season_ball$Mat.bs <- as.integer(season_ball$Mat.bs)
+season_ball$Inns.bs <- as.integer(season_ball$Inns.bs)
+season_ball$Mdns.bs <- as.factor(season_ball$Mdns.bs)
+season_ball$Runs.bs <- as.integer(season_ball$Runs.bs)
+season_ball$Wkts.bs <- as.integer(season_ball$Wkts.bs)
+season_ball$four.bs <- as.integer(season_ball$four.bs)
+season_ball$five.bs <- as.integer(season_ball$five.bs)
+season_ball$Ct.bs <- as.integer(season_ball$Ct.bs)
+season_ball$St.bs <- as.integer(season_ball$St.bs)
+season_ball$Season.bs <- as.factor(season_ball$Season.bs)
+```
+##2.1 Univariate Analysis
+5 Number Summary
+```{r}
+summary(season_ball$Season.bs)
+```
+
+In order to evaluate bowlers performance, let us extract bowlers who have balled at least one over.
+
+```{r}
+bowlers_season <- season_ball %>% filter(Overs.bs >=1)
+```
+
+```{r}
+dim(bowlers_season)
+dim(season_ball)
+```
+
+
+Bowlers who have had  opportunity at least one over to  ball minimizes the number observations from 2024 to 1337. 687 bowlers performance needs to be evaluated using other external parameters.
+
+Now, let's analyze how the distribution of Economy rate attribute got impacted after extracting players with IPL bowling experience.
+
+```{r}
+summary(bowlers_season)
+```
+As suspected new economy rate mean value to be 8.665 which is much closer to the new median value of 8.2 makes the distribution less skewed. Moreover, minimum value to be 3.0. Also, top 25% of the players are with an economy rate of 7.28.
+
+Next let us investigate the performance of the experienced bowlers.
+
+```{r}
+most_bowled_season<-top_n(bowlers_season,20,Mat.bs)
+
+# Experienced bowlers with Best Economy Rate
+top_n(most_bowled_season,-10,Econ.bs) %>% 
+  ggplot(aes(x=reorder(Player,Econ.bs),y=Econ.bs,fill = Econ.bs))+ 
+  geom_bar(stat="Identity")+
+  coord_flip()+
+  scale_y_continuous("Economy Rate")+
+  scale_x_discrete("Bowlers Name")
+
+```
+
+As the plot illustrates, there only 4 best bowlers with an economy rate below 6.0.
+
+##2.2 Multivariate Analysis
+
+Multivariate analysis will be conducted with most influential attributes based the domain knowledge and the structural colinearity of the attributes.
+```{r}
+most_bowled_season %>% select(Mat.bs,Overs.bs,Wkts.bs,Ave.bs,Econ.bs,SR.bs) %>% ggpairs()
+colnames(most_bowled_season)
+```
+

@@ -1,0 +1,107 @@
+---
+title: "Scorecard"
+author: "Karthik"
+date: "11/30/2020"
+output: html_document
+---
+
+# Dataset Setup
+```{r}
+scorecards_bat<- scorecards_bat_df
+```
+
+#1.0 EDA
+##1.1 Sanity Check
+###1.1.1 Variable Names
+```{r}
+colnames(scorecards_bat)# Displays Variable names
+colnames(scorecards_bat) <- c("Season.sc","Match.no","Inns.sc","For.sc","Against.sc","Player","Mode.sc","Runs.sc","BF.sc","four.sc","six.sc","SR.sc") # Changing variable names
+
+```
+
+###1.1.2 Variable Class
+```{r}
+scorecards_bat$Season.sc <- as.factor(scorecards_bat$Season.sc)
+scorecards_bat$Match.no <- as.factor(scorecards_bat$Match.no)
+scorecards_bat$SR.sc <- as.numeric(scorecards_bat$SR.sc)
+scorecards_bat$Inns.sc <- as.factor(scorecards_bat$Inns.sc)
+scorecards_bat$Player <- as.factor(as.character(scorecards_bat$Player))
+scorecards_bat$For.sc <- as.factor(scorecards_bat$For.sc)
+scorecards_bat$Against.sc <- as.factor(scorecards_bat$Against.sc)
+scorecards_bat$Runs.sc <- as.numeric(scorecards_bat$Runs.sc)
+scorecards_bat$BF.sc <- as.numeric(scorecards_bat$BF.sc)
+scorecards_bat$four.sc <- as.integer(scorecards_bat$four.sc)
+scorecards_bat$six.sc <- as.integer(scorecards_bat$six.sc)
+scorecards_bat$SR.sc <- as.numeric(scorecards_bat$SR.sc)
+str(scorecards_bat)
+```
+
+##1.2 Missing Values Analysis
+ Strike rate attribute showed a 248 of missing values which needs to be taken cared before commencing any further analysis.
+ 
+```{r}
+anyNA(scorecards_bat) # Presence of any NAs
+sum(is.na(scorecards_bat)) # Total NAs
+colSums(is.na(scorecards_bat)) # Coloumn wise NAs.
+```
+
+### 1.2.1 Missing Value Visualisation
+
+```{r}
+vis_miss(scorecards_bat)
+anyNA(scorecards_bat_df)
+```
+
+
+
+### 1.2.2 Missing Value treatment
+
+```{r}
+
+scorecards_bat[is.na(scorecards_bat)] <- 0
+anyNA(scorecards_bat)
+
+```
+ Missing value observations were extracted to do the missing value analysis. As per theory there exist 3 types of missing values.
+ 1. MAR (Missing At Random) - missing values are caused due to some other attribute in the dataset.
+ 2. MCAR ( Missing Completely At Random)- missing values are caused by an external factors
+ 3. MNAR (Missing Not At Random) - missing values are caused due to the attribute itself.
+ 
+ In this casestudy,strike rate of a batsman who has not faced any ball at a particular match had been entered as "0". This missing value type can be categorized as MAR(Missing At Random).
+ 
+Hence, missing value treatment can be applied by replacing them into 0.
+
+## 1.2 Variable Transformation
+As discussed in the previous dataset EDAs, let us collapse "four" and "six" scored in to one single attribute called "boundaries".
+```{r}
+scorecards_bat_new <- scorecards_bat %>% 
+  transmute(Season.sc,
+            Match.no,
+            Inns.sc,
+            For.sc,
+            Against.sc,
+            Player,
+            Mode.sc,
+            Runs.sc,
+            BF.sc,
+            boundaries.sc= four.sc+six.sc,
+            SR.sc)
+            
+```
+
+
+
+##1.3 Correlation Matrix on Batsmen Scorecard Dataset
+```{r}
+
+corrmat_score_bat<-scorecards_bat_new %>% keep(is.numeric) %>% cor()
+corrmat_score_bat
+corrplot(corrmat_score_bat,method="circle",type="upper",order="hclust")
+scorecards_bat_new %>% select(-c(Season.sc,BF.sc,For.sc,Against.sc,Match.no,Player,Mode.sc)) %>% ggpairs()
+```
+ Same as the previous career and seasonal dataset "Runs" and "boundaries" are strongly correlated. All other attributes are moderately correlated. Furthermore,the mean value of "Runs","boundaries" and "SR" of the batsmen scorecard of batted first and second seems to be almost equal. Also, those attributes show a left skewed distribution.
+
+
+
+
+

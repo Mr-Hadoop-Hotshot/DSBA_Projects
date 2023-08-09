@@ -1,0 +1,315 @@
+---
+title: "IPL EDA"
+author: "Karthik"
+date: "11/25/2020"
+output: html_document
+---
+
+
+
+# Working Directory
+```{r}
+setwd("F:/Data Science/Casestudies/IPL/IPL CaseStudy/")
+getwd()
+```
+# Libraries
+```{r}
+library(readxl) # Importing Excel files into R
+library(tidyverse) # Pipeline command & Data transformation
+library(GGally) # GG pairs plot
+library(corrplot)# Plotting Correlation Matrix
+#install.packages("GGally")
+library(ggplot2)# Data Visualisation
+library(visdat) # Missing Value Visualisations
+```
+
+
+# Import Dataset
+```{r}
+season_bat_df <- read_xlsx("season.xlsx",sheet = "Bat") # Season Batsmen Dataset
+career_bat_df <- read_xlsx("career.xlsx",sheet = "Bat") # Career Batsment Dataset
+scorecards_bat_df <- read_xlsx("scorecards.xlsx",sheet = "Bat") # Scorecard Dataset
+output <- read_xlsx("Output_edit.xlsx",sheet="Output_edit") # Output dataset
+```
+
+```{r}
+dim(season_bat_df)
+dim(career_bat_df)
+dim(scorecards_bat_df)
+dim(output)
+```
+
+
+#-------------------------------------------------------------------------------
+# NOTES: 
+
+I) Investigate Players overall IPL career.
+        1) Pick best players based on KPI.
+            a)Most Played. OK
+            b)Most Batted. OK
+            c)Ave,SR - Max and Min Indicates overall IPL career.
+            d)Give a confidence score.
+            e)Runs,BF.
+            f)inn,NO.
+
+            
+II) Investigate Player by Season.
+    1)Pick best player of the season.
+        a) Ave,SR - Max and Min.
+        b) Most Played.
+        c) Most Batted.
+    2)Investigate Player's best season based on best career.
+    3)Investigate Player's worst season based on best career. 
+    
+III) In scorecard inni data dictionary - 0 =1st inn, 1= 2nd inn.
+     Actual dataset 1 and 2.
+     1) Most scored player against which IPL team.
+     2) Best player season and career against which IPL team.
+     3) Worst player season and career against which IPL team.
+#-------------------------------------------------------------------------------
+#2.0 EDA 
+##2.1 Sanity Check  
+###2.1.2 Variable Names
+```{r}
+career_bat <- career_bat_df # Setting dataset for processing
+
+# Coloumn name transformation
+colnames(career_bat) <- c("Player","Mat.c","Inns.c","NO.c","Runs.c","BF.c","hundreds.c","fifties.c","ducks.c","four.c","six.c","Ave.c","SR.c","HS.c","NO_HS.c" )
+
+# Display Coloumn names
+colnames(career_bat)
+```
+
+Attributes which describe same information has different names on different excel sheet. In order to create a standardize understanding in our interpretation converted column names into a common name.  
+
+###2.1.3 Class Type
+
+Let us investigate on the data type of the given "career" data set attributes.
+```{r}
+str(career_bat)# Display variable classes
+
+# Transforming variable classes.
+career_bat$Player <- as.factor(career_bat$Player)
+career_bat$Inns.c <- as.integer(career_bat$Inns.c)
+career_bat$Mat.c <- as.integer(career_bat$Mat.c)
+career_bat$NO.c <- as.integer(career_bat$NO.c)
+career_bat$BF.c <- as.integer(career_bat$BF.c)
+career_bat$NO_HS.c <-as.factor(career_bat$NO_HS.c) 
+career_bat$Runs.c <- as.integer(career_bat$Runs.c)
+career_bat$four.c <- as.integer(career_bat$four.c)
+career_bat$six.c <- as.integer(career_bat$six.c)
+career_bat$HS.c <- as.integer(career_bat$HS.c)
+career_bat$hundreds.c <-as.integer(career_bat$hundreds.c) 
+career_bat$fifties.c <-as.integer(career_bat$fifties.c) 
+career_bat$ducks.c <-as.factor(career_bat$ducks.c) 
+```
+## 2.2 Missing Values
+
+The "career" dataset contains a complete rows of observation hence, we could proceed with further analysis.
+```{r}
+anyNA(career_bat) # Checking for missing values in Career dataset
+summary(career_bat) # Generating 5 Number summary f all attributes.
+dim(career_bat)
+```
+
+There are about 560 batsmen have been taken into consideration and their performance have been evaluated using  14 attributes.
+
+#3.0 UNIVARIATE ANALYSIS
+##3.1 PLAYER
+
+```{r}
+## Most Played
+career_bat %>% 
+  select(Player,Mat.c) %>%  
+  filter(Mat.c==max(Mat.c)) # Most number of matches played by a batsman
+## Least Played
+career_bat %>% 
+  select(Player,Mat.c) %>%  
+  filter(Mat.c==min(Mat.c)) %>% 
+  count() # All players have played at least one IPL match in their career. 
+
+## Most Batted
+career_bat %>% 
+  select(Player,Inns.c) %>% 
+  filter(Inns.c==max(Inns.c)) 
+
+
+## Most Batted
+career_bat %>% 
+  select(Player,Inns.c) %>% 
+  filter(Inns.c==min(Inns.c)) %>%count()/nrow(career_bat)*100 
+
+Top_ten_inn <- top_n(career_bat,10,Inns.c) %>% arrange(desc(Inns.c))
+Top_ten_inn    
+
+```
+
+As per the given data set SK Raina have played the most number of IPL matches in his career which is 193 matches. Also, interesting to note that, 45 players have played only one IPL match so far.
+
+Evidently, he holds the first place for a batsman who batted the most number of games he played that is 99 matches. In contrast, all batsmen have got a chance to bat at least once in their career. It is 7.5% of total list.
+
+
+
+## 3.2 Variable Transformation.
+```{r}
+career_bat_new<- career_bat %>% transmute(Player,
+            Mat.c,
+            Inns.c,
+            NO.c,
+            Runs.c,
+            BF.c,
+            hundreds.c,
+            fifties.c,
+            ducks.c,
+            boundaries.c= four.c+six.c,
+            Ave.c,
+            SR.c,
+            HS.c,
+            NO_HS.c) %>% select(Player,Inns.c,boundaries.c,Ave.c,SR.c,NO_HS.c)
+```
+
+##3.3 Inns
+"Inns" denotes the number of innings played by each batsmen.
+```{r}
+
+range(career_bat_new$Inns.c) # Min & Max of Inns played.
+
+#Histogram
+ggplot(career_bat_new,aes(x=Inns.c))+geom_histogram(color="darkblue",fill='lightblue',binwidth=1)+
+  geom_vline(aes(xintercept=mean(Inns.c)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(Inns.c)),color ="red",linetype="dashed",size=1)+
+  labs(title="Innings played Histogram Plot",x="Innings Played", y = "Count")
+
+# Box plot    
+boxplot(career_bat_new$Inns.c,horizontal = TRUE,col="blue",main = "Innings Played Boxplot Distribution", xlab= "Number of Innings played")
+```
+```{r}
+# Innings Played Outliers
+
+# OUTLIER CALCULATION
+mean(career_bat_new$Inns.c) # Average Inns played in their career
+median(career_bat_new$Inns.c) # Median of the Inns played in their career.
+
+IQR_Inns.c = IQR(career_bat_new$Inns.c)
+IQR_Inns.c
+
+# Quantile Caluculation
+Q3_Inns.c = quantile(career_bat_new$Inns.c,0.75)
+Q3_Inns.c
+
+Q1_Inns.c =quantile(career_bat_new$Inns.c,0.25)
+Q1_Inns.c
+
+# IQR Calulation
+Max_IQR_Inns.c = Q3_Inns.c + 1.5*IQR_Inns.c
+Min_IQR_Inns.c = Q1_Inns.c + 1.5*IQR_Inns.c
+
+# Outliers calculation
+sum(career_bat_new$Inns.c > Max_IQR_Inns.c)
+sum(career_bat_new$Inns.c < Min_IQR_Inns.c)
+
+```
+Innings played in their IPL career distribution contains 68 lower outliers and 452 upper outliers.
+However, on average each player have batted at least 20 games in their career. An interesting observation is, at least 25% of the players have batted 22 games.
+
+##3.4 Boundaries Scored
+This attribute is a summation of both fours and sixers scored by each batsmen.
+
+
+```{r}
+
+ggplot(career_bat_new,aes(x=boundaries.c))+geom_histogram(color="darkblue",fill='lightblue',binwidth=1)+
+  geom_vline(aes(xintercept=mean(boundaries.c)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(boundaries.c)),color ="red",linetype="dashed",size=1)+
+  labs(title="Innings played Histogram Plot",x="Innings Played", y = "Count")
+
+
+
+```
+
+
+```{r}
+
+
+# Boundaries scored Outliers
+
+# OUTLIER CALCULATION
+mean(career_bat_new$boundaries.c) # Average Inns played in their career
+median(career_bat_new$boundaries.c) # Median of the Inns played in their career.
+
+IQR_boundaries.c = IQR(career_bat_new$boundaries.c)
+IQR_boundaries.c
+
+# Quantile Caluculation
+Q3_boundaries.c = quantile(career_bat_new$boundaries.c,0.75)
+Q3_boundaries.c
+
+Q1_boundaries.c =quantile(career_bat_new$boundaries.c,0.25)
+
+Q1_boundaries.c
+
+# IQR Calulation
+Max_IQR_boundaries.c = Q3_boundaries.c + 1.5*IQR_boundaries.c
+Min_IQR_boundaries.c = Q1_boundaries.c + 1.5*IQR_boundaries.c
+
+# Outliers calculation
+sum(career_bat_new$boundaries.c > Max_IQR_boundaries.c)
+sum(career_bat_new$boundaries.c < Min_IQR_boundaries.c)
+```
+
+Most number of boundaries played by single player in his IPL career is 694. There are 444 highly entertained IPL players who have scored the most number of boundaries and considered to be an outlier.
+
+```{r}
+# Innings Played Outliers
+ggplot(career_bat_new,aes(x=SR.c))+geom_histogram(color="darkblue",fill='lightblue',binwidth=1)+
+  geom_vline(aes(xintercept=mean(SR.c)),color="black",linetype="dashed",size=1)+
+  geom_vline(aes(xintercept=median(SR.c)),color ="red",linetype="dashed",size=1)+
+  labs(title="Innings played Histogram Plot",x="Innings Played", y = "Count")
+
+# OUTLIER CALCULATION
+mean(career_bat_new$SR.c) # Average SR.c in their career
+median(career_bat_new$SR.c) # Median of the SR.c played in their career.
+
+IQR_SR.c = IQR(career_bat_new$SR.c)
+IQR_SR.c
+
+# Quantile Caluculation
+Q3_SR.c = quantile(career_bat_new$SR.c,0.75)
+Q3_SR.c
+
+Q1_SR.c =quantile(career_bat_new$SR.c,0.25)
+Q1_SR.c
+
+# IQR Calulation
+Max_IQR_SR.c = Q3_SR.c + 1.5*IQR_SR.c
+Max_IQR_SR.c
+Min_IQR_SR.c = Q1_SR.c + 1.5*IQR_SR.c
+
+# Outliers calculation
+sum(career_bat_new$SR.c > Max_IQR_SR.c)
+sum(career_bat_new$SR.c < Min_IQR_SR.c)
+```
+Overall strike rate is right skewed distribution. The literature states 150% strike rate is becoming very common these days. However, any player with a strike rate above 135% can be considered a decent player. One player who has more than ~210% strike rate.   
+
+#4.0 Multivariate Analysis
+```{r}
+
+
+career_bat_new %>% select(Inns.c:NO_HS.c) %>% ggpairs()
+```
+
+In this case study anything above 70% will be considered a heavy correlation attribute pairs and between 30% t0 70% correlation value considered as moderately correlated.Any correlation value below, 30% is loosely correlated. From the above plot it can be said that number of innings played and boundaries scored by players in their IPL career shows very strong correlation (~93%). 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

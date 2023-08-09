@@ -1,0 +1,90 @@
+---
+title: "scorecard_Ball"
+author: "Karthik"
+date: "12/2/2020"
+output: html_document
+---
+#1.0 DataSet Preparation
+```{r}
+scorecards_ball<-scorecards_ball_df
+```
+
+#2.0 EDA
+##2.1 Sanity Check
+###2.1.1 Variable Names
+```{r}
+colnames(scorecards_ball_df)
+```
+
+```{r}
+colnames(scorecards_ball) <- c("Season.bsc","Match.no.bsc","Inns.bsc","Player.bsc","Over.bsc","Mdns.bsc","Runs.bsc","Wkts.bsc","Econ.bsc","dot.bsc","four.bsc","six.bsc","WD.bsc","NB.bsc","For.bsc","Against.bsc")
+
+colnames(scorecards_ball)
+```
+
+### 2.1.2 Variable Class
+
+```{r}
+str(scorecards_ball)
+scorecards_ball$Season.bsc <- as.factor(scorecards_ball$Season.bsc)
+scorecards_ball$Match.no.bsc<-as.factor(scorecards_ball$Match.no.bsc)
+scorecards_ball$Player.bsc <- as.factor(scorecards_ball$Player.bsc)
+scorecards_ball$Inns.bsc <- as.factor(scorecards_ball$Inns.bsc)
+scorecards_ball$Over.bsc <- as.integer(scorecards_ball$Over.bsc)
+scorecards_ball$Mdns.bsc <- as.integer(scorecards_ball$Mdns.bsc)
+scorecards_ball$Wkts.bsc <- as.integer(scorecards_ball$Wkts.bsc)
+scorecards_ball$Runs.bsc <- as.integer(scorecards_ball$Runs.bsc)
+scorecards_ball$dot.bsc <- as.integer(scorecards_ball$dot.bsc)
+scorecards_ball$four.bsc <- as.integer(scorecards_ball$four.bsc)
+scorecards_ball$six.bsc <- as.integer(scorecards_ball$six.bsc)
+
+scorecards_ball$WD.bsc <- as.integer(scorecards_ball$WD.bsc)
+scorecards_ball$NB.bsc <- as.integer(scorecards_ball$NB.bsc)
+
+scorecards_ball$For.bsc <- as.factor(scorecards_ball$For.bsc)
+scorecards_ball$Against.bsc<-as.factor(scorecards_ball$Against.bsc)
+```
+##2.2 Missing Value Analysis
+Bowling scorecard dataset contains of one economy rate informaiton missing.
+```{r}
+anyNA(scorecards_ball)
+sum(is.na(scorecards_ball))
+colSums(is.na(scorecards_ball))
+```
+
+### 2.2.1Missing Value Treatment
+```{r}
+
+scorecards_ball[is.na(scorecards_ball)]<-0 # It can be found that JP duminy hasn't bowled any overs,hence the economy rate has been equated to zero.
+anyNA(scorecards_ball) # Now the Bowlers scorecard information is filled with complete observations only.
+```
+
+##2.3 Variable Transformation & Selection
+Domain knowledge is applied to select most suitable variable.
+```{r}
+scorecards_ball_new<-scorecards_ball %>%  
+  transmute(Season.bsc,
+            Match.no.bsc,
+            Inns.bsc,
+            Player.bsc,
+            Over.bsc,
+            Mdns.bsc,
+            Runs.bsc,
+            Wkts.bsc,
+            Econ.bsc,
+            dot.bsc,
+            boundaries.bsc = four.bsc+six.bsc,
+            extras.bsc=WD.bsc+NB.bsc,
+            For.bsc,
+            Against.bsc)
+ 
+
+scorecards_ball_new %>% select(-c(Season.bsc,Match.no.bsc,,Inns.bsc,For.bsc,dot.bsc,Against.bsc,Player.bsc)) %>%ggpairs()
+```
+
+
+
+
+
+
+

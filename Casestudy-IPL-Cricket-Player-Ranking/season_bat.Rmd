@@ -1,0 +1,184 @@
+---
+title: "Season_bat"
+author: "Karthik"
+date: "11/29/2020"
+output: html_document
+---
+
+# 1.0 Dataset Download
+```{r}
+season_bat <- season_bat_df # Storing Seasonal Performance dataset under another .df
+```
+
+
+# 2.0 EDA
+## 2.1 Sanity Check
+### 2.1.2 Variable Names
+```{r}
+# Chaning Coloumn Names
+colnames(season_bat) <- c("Player","Mat.s","Inns.s","NO.s","Runs.s","HS.s",
+                        "Ave.s","BF.s","SR.s","hundreds.s","fifties.s","ducks.s",
+                        "four.s","six.s","Season.s","NO_HS.s") 
+
+colnames(season_bat) # Display column names.
+
+```
+###2.1.3 Variable Class
+```{r}
+str(season_bat) # Display variable classes
+
+# Transforming variable classes.
+season_bat$Player <- as.factor(season_bat$Player)
+season_bat$Mat.s <- as.integer(season_bat$Mat.s)
+season_bat$Inns.s <- as.integer(season_bat$Inns.s)
+season_bat$NO.s <- as.integer(season_bat$NO.s)
+season_bat$Runs.s <- as.integer(season_bat$Runs.s)
+season_bat$BF.s <- as.integer(season_bat$BF.s)
+season_bat$hundreds.s <- as.factor(season_bat$hundreds.s)
+season_bat$fifties.s <- as.factor(season_bat$fifties.s)
+season_bat$ducks.s <- as.factor(season_bat$ducks.s)
+season_bat$four.s <- as.integer(season_bat$four.s)
+season_bat$six.s <- as.integer(season_bat$six.s)
+season_bat$HS.s <- as.integer(season_bat$HS.s)
+season_bat$NO_HS.s <- as.factor(season_bat$NO_HS.s)
+season_bat$Season.s <- as.factor(season_bat$Season.s)
+
+# Generating 5 Number summary f all attributes.
+summary(season_bat)
+```
+5 Numer summary is generated for the seasonal dataset attributes.
+
+## 2.2  Missing Values
+```{r}
+anyNA(season_bat)
+```
+Data set looks clean. Let us proceed with the EDA.
+Selecting the best player of the season.
+
+## 2.3 Variable Transformation.
+```{r}
+
+#Transforming Variables
+season_bat_new <- season_bat %>% 
+  transmute(
+    Player,
+    Mat.s,
+    Inns.s,
+    NO.s,
+    Runs.s,
+    HS.s,
+    Ave.s,
+    BF.s,
+    SR.s,
+    hundreds.s,
+    fifties.s,
+    ducks.s,
+    boundaries.s=four.s+six.s,
+    Season.s,
+    NO_HS.s) %>% 
+  select(Player,Inns.s,Runs.s,Ave.s,SR.s,boundaries.s,NO_HS.s)
+
+```
+#3.0 Univariate Analysis.
+
+```{r}
+# Histogram of Numeric Attributes
+season_bat_new %>% keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value))+
+  facet_wrap(~key,scales="free")+
+  geom_histogram(binwidth=0.5,color="blue",fill="white")
+colnames(season_bat)# Displaying Coloumn names.
+```
+Selected 5 attributes show right skewed distribution.
+
+
+
+##3.1 Key performance Indicator.
+```{r}
+## Most Played
+season_bat %>% 
+  select(Player,Mat.s) %>%  
+  filter(Mat.s==max(Mat.s)) # Most number of matches played by a batsman
+
+## Least Played
+season_bat %>% 
+  select(Player,Mat.s) %>%  
+  filter(Mat.s==min(Mat.s)) %>% 
+  count() # All players have played at least one IPL match in their career. 
+
+## Most Batted
+season_bat %>% 
+  select(Player,Inns.s) %>% 
+  filter(Inns.s==max(Inns.s)) 
+
+
+## Most Batted Players
+season_bat %>% 
+  select(Player,Inns.s) %>% 
+  filter(Inns.s==min(Inns.s)) %>%count()/nrow(season_bat)*100 
+
+# Top 20 IPL Experienced Players
+Season_ten_inn <- top_n(season_bat,10,Inns.s) 
+Season_ten_inn 
+
+# Top 20 Batting Average 
+season_ave <- top_n(season_bat,20,Ave.s) %>% arrange(desc(Ave.s))
+season_ave
+
+# Top 20 Strike Rate
+season_sr <- top_n(season_bat,20,SR.s) %>% arrange(desc(SR.s))
+season_sr
+
+# Top 20 Highest Scored Batsmen
+season_HS <- top_n(season_bat,20,HS.s) %>%  arrange(desc(HS.s))
+season_HS
+
+```
+
+## 3.2 Best Experienced Seasonal Batsmen
+Let us analyse the top most innings played batsmen strike rate information.
+```{r}
+# Experienced bowlers with Best Economy Rate
+
+Season_ten_inn %>% 
+  ggplot(aes(x=reorder(Player,SR.s),y=SR.s,fill = SR.s))+ 
+  geom_bar(stat="Identity")+
+  coord_flip()+
+  scale_y_continuous("Batting Strike Rate")+
+  scale_x_discrete("Batsmen Name")
+```
+
+
+#5.0 Multivariate Analysis
+
+##5.1 Correlation Matrix
+Strength of the relationship between each attributes.    
+
+```{r}
+#Generating Correlation matrix of numeric attributes
+corrmatrix <-season_bat_new %>% 
+  keep(is.numeric) %>%  
+  cor() 
+# Approximate the correlation matrix element to 2 decimal places.
+round(corrmatrix,2)
+# Plot the correlation matrix
+corrplot(corrmatrix,method='circle',type='upper',order="hclust")
+```
+
+##5.2 GGpair Plot
+```{r}
+
+season_bat_new %>% select(Inns.s:NO_HS.s) %>% ggpairs()
+
+colnames(season_bat_new)
+```
+As expected "Runs" and "boundaries" show strong correlation of 98%. In addition to that, "Runs" & "Inns", "Ave" & "Runs" and "boundaries" & "Ave" show a moderate correlation of 88.3%,74.9% and 72.7% respectively.
+
+An interesting observation is strike rate of both levels of players who have got out and continued the innings with highest score distribution show sign of normal distribution of densed bars at the centre.
+
+
+
+
+
+
